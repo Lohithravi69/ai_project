@@ -1,0 +1,173 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-dev-os-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_dev_os
+      POSTGRES_USER: ai_dev_os
+      POSTGRES_PASSWORD: ai_dev_os_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_dev_os"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-dev-os-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    container_name: ai-dev-os-chroma
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      IS_PERSISTENT: "true"
+      PERSIST_DIRECTORY: /chroma/data
+    volumes:
+      - chroma_data:/chroma/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-dev-os-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./models:/models
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: ai-dev-os-backend
+    restart: unless-stopped
+    env_file:
+      - backend/.env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ai_dev_os:ai_dev_os_password@postgres:5432/ai_dev_os
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_PERSIST_DIRECTORY: /app/vector_store/chroma
+      REPOSITORIES_ROOT: /app/repositories
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./repositories:/app/repositories
+      - ./vector_store:/app/vector_store
+      - ./logs:/app/logs
+      - ./models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: ai-dev-os-celery
+    restart: unless-stopped
+    env_file:
+      - backend/.env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ai_dev_os:ai_dev_os_password@postgres:5432/ai_dev_os
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_PERSIST_DIRECTORY: /app/vector_store/chroma
+      REPOSITORIES_ROOT: /app/repositories
+    command: celery -A backend.execution.celery_app:celery_app worker --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./repositories:/app/repositories
+      - ./vector_store:/app/vector_store
+      - ./logs:/app/logs
+      - ./models:/app/models
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: ai-dev-os-celery-beat
+    restart: unless-stopped
+    env_file:
+      - backend/.env.example
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ai_dev_os:ai_dev_os_password@postgres:5432/ai_dev_os
+      REDIS_URL: redis://redis:6379/0
+      OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_PERSIST_DIRECTORY: /app/vector_store/chroma
+      REPOSITORIES_ROOT: /app/repositories
+    command: celery -A backend.execution.celery_app:celery_app beat --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./vector_store:/app/vector_store
+      - ./logs:/app/logs
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: ai-dev-os-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
+  ollama_data:
