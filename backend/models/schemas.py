@@ -120,5 +120,110 @@ class RepositoryFilesResponse(BaseModel):
     files: list[FileSummaryRead] = Field(default_factory=list)
 
 
+class ToolSpecRead(BaseModel):
+    name: str
+    description: str
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] = Field(default_factory=dict)
+    permission_level: str
+    timeout_seconds: int
+    rollback_support: bool
+    dry_run_support: bool
+
+
+class ToolInvocationRequest(BaseModel):
+    tool_name: str = Field(min_length=1)
+    repository_id: str | None = None
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    plan_id: str | None = None
+    dry_run: bool = True
+    reasoning: str = Field(default="")
+
+
+class ToolInvocationResponse(BaseModel):
+    tool_name: str
+    dry_run: bool
+    success: bool
+    execution_ms: int
+    result: dict[str, Any] = Field(default_factory=dict)
+    affected_files: list[str] = Field(default_factory=list)
+    diff_preview: str | None = None
+    estimated_impact: str = ""
+    risks: list[str] = Field(default_factory=list)
+    checkpoint_id: str | None = None
+    requires_approval: bool = False
+    exception_message: str = ""
+    log_id: str | None = None
+
+
+class PlanStepRead(BaseModel):
+    order: int
+    title: str
+    description: str
+    tools: list[str] = Field(default_factory=list)
+    dry_run: bool = True
+
+
+class ActionPlanCreateRequest(BaseModel):
+    objective: str = Field(min_length=1)
+    request_text: str = Field(min_length=1)
+    repository_ids: list[str] = Field(default_factory=list)
+    affected_files: list[str] = Field(default_factory=list)
+    reasoning: str = Field(default="")
+
+
+class ActionPlanRead(BaseModel):
+    plan_id: str
+    objective: str
+    reasoning: str
+    affected_repositories: list[dict[str, Any]] = Field(default_factory=list)
+    affected_files: list[str] = Field(default_factory=list)
+    estimated_risk: str
+    required_tools: list[str] = Field(default_factory=list)
+    rollback_strategy: str
+    approval_status: str
+    execution_order: list[PlanStepRead] = Field(default_factory=list)
+
+
+class PlanApprovalRequest(BaseModel):
+    approved: bool = True
+    reviewer: str = Field(default="")
+
+
+class CheckpointRead(BaseModel):
+    checkpoint_id: str
+    plan_id: str | None = None
+    repository_id: str | None = None
+    branch_name: str
+    git_sha: str
+    modified_files: list[str] = Field(default_factory=list)
+    reasoning: str = ""
+    plan: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class RollbackCommitInput(BaseModel):
+    checkpoint_id: str
+    dry_run: bool = False
+
+
+class RollbackRequest(BaseModel):
+    checkpoint_id: str
+    dry_run: bool = False
+
+
+class RollbackResponse(BaseModel):
+    checkpoint_id: str
+    repository_id: str | None = None
+    success: bool
+    dry_run: bool
+    restored_branch: str | None = None
+    restored_git_sha: str | None = None
+    summary: str = ""
+    execution_ms: int = 0
+    exception_message: str = ""
+
+
 GitHubSyncResponse.model_rebuild()
 RepositoryFilesResponse.model_rebuild()

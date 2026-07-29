@@ -19,6 +19,7 @@ class SearchRequest(BaseModel):
     query: str
     repository_id: str | None = None
     top_k: int = 8
+    chunk_type: str | None = None
 
 
 class SearchResult(BaseModel):
@@ -40,7 +41,7 @@ async def semantic_search(payload: SearchRequest, session: AsyncSession = Depend
     retriever = Retriever(chroma, ollama, memory)
 
     try:
-        results = await retriever.retrieve(payload.query, repository_id=payload.repository_id, top_k=payload.top_k)
+        results = await retriever.retrieve(payload.query, repository_id=payload.repository_id, top_k=payload.top_k, chunk_type=payload.chunk_type)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return SearchResponse(results=[SearchResult(**r) for r in results])

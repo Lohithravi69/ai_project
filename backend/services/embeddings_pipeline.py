@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, List
 from math import ceil
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
@@ -60,11 +60,11 @@ class EmbeddingsPipeline:
                 )
                 # insert into embeddings_meta
                 await session.execute(
-                    """
-                    INSERT INTO embeddings_meta (embedding_id, chunk_id, chroma_id, model_name, dimension, vector, created_at)
-                    VALUES (:embedding_id, :chunk_id, :chroma_id, :model_name, :dimension, :vector, NOW())
-                    ON CONFLICT (embedding_id) DO UPDATE SET chroma_id = EXCLUDED.chroma_id, model_name = EXCLUDED.model_name, dimension = EXCLUDED.dimension, vector = EXCLUDED.vector
-                    """,
+                    text(
+                        "INSERT INTO embeddings_meta (embedding_id, chunk_id, chroma_id, model_name, dimension, vector, created_at) "
+                        "VALUES (:embedding_id, :chunk_id, :chroma_id, :model_name, :dimension, :vector, NOW()) "
+                        "ON CONFLICT (embedding_id) DO UPDATE SET chroma_id = EXCLUDED.chroma_id, model_name = EXCLUDED.model_name, dimension = EXCLUDED.dimension, vector = EXCLUDED.vector"
+                    ),
                     {
                         "embedding_id": item.id,
                         "chunk_id": item.id,

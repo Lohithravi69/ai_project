@@ -28,11 +28,14 @@ class ChromaService:
     ) -> None:
         self._collection.upsert(ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
 
-    def search(self, query_embedding: list[float], repository_id: str, top_k: int = 5) -> list[dict[str, Any]]:
+    def search(self, query_embedding: list[float], repository_id: str, top_k: int = 5, chunk_type: str | None = None) -> list[dict[str, Any]]:
+        where_filter: dict[str, Any] = {"repository_id": repository_id}
+        if chunk_type:
+            where_filter["chunk_type"] = chunk_type
         result = self._collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,
-            where={"repository_id": repository_id},
+            where=where_filter,
             include=["documents", "metadatas", "distances"],
         )
         documents = result.get("documents", [[]])[0]
@@ -49,3 +52,8 @@ class ChromaService:
                 }
             )
         return hits
+
+    def delete_chunks(self, ids: list[str]) -> None:
+        if not ids:
+            return
+        self._collection.delete(ids=ids)

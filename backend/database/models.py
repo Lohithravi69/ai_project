@@ -113,3 +113,157 @@ class ChatMessage(Base, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")
+
+
+class AgentExecution(Base, TimestampMixin):
+    __tablename__ = "agent_executions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    repository_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("repositories.id", ondelete="SET NULL"), nullable=True)
+    agent_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    task_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(64), default="queued", nullable=False)
+    step_logs: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    error_message: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class ActionPlanRecord(Base, TimestampMixin):
+    __tablename__ = "action_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    repository_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("repositories.id", ondelete="SET NULL"), nullable=True)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    reasoning: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    affected_repositories_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    affected_files_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    estimated_risk: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    required_tools_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    rollback_strategy: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    approval_status: Mapped[str] = mapped_column(String(32), default="pending_approval", nullable=False)
+    execution_order_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    plan_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class ExecutionCheckpoint(Base, TimestampMixin):
+    __tablename__ = "execution_checkpoints"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    plan_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("action_plans.id", ondelete="SET NULL"), nullable=True)
+    repository_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("repositories.id", ondelete="SET NULL"), nullable=True)
+    branch_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    git_sha: Mapped[str] = mapped_column(String(128), nullable=False)
+    modified_files_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    reasoning: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    plan_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class ToolInvocationLog(Base, TimestampMixin):
+    __tablename__ = "tool_invocation_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    plan_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("action_plans.id", ondelete="SET NULL"), nullable=True)
+    checkpoint_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("execution_checkpoints.id", ondelete="SET NULL"), nullable=True)
+    repository_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("repositories.id", ondelete="SET NULL"), nullable=True)
+    tool_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    inputs_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    outputs_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    dry_run: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    success: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    execution_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    exception_message: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+
+# ── Phase 2 ORM models ──────────────────────────────────────────────────────
+
+
+class EmbeddingsMeta(Base):
+    __tablename__ = "embeddings_meta"
+
+    embedding_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    chunk_id: Mapped[str] = mapped_column(String(36), ForeignKey("chunks.id", ondelete="CASCADE"), nullable=False)
+    chroma_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dimension: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vector: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class ProjectGraphNode(Base):
+    __tablename__ = "project_graph_nodes"
+
+    node_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    repository_id: Mapped[str] = mapped_column(String(36), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False)
+    node_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    canonical_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class ProjectGraphEdge(Base):
+    __tablename__ = "project_graph_edges"
+
+    edge_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    repository_id: Mapped[str] = mapped_column(String(36), ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False)
+    from_node: Mapped[str] = mapped_column(String(36), ForeignKey("project_graph_nodes.node_id", ondelete="CASCADE"), nullable=False)
+    to_node: Mapped[str] = mapped_column(String(36), ForeignKey("project_graph_nodes.node_id", ondelete="CASCADE"), nullable=False)
+    edge_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class ConversationMemory(Base):
+    __tablename__ = "conversation_memory"
+
+    memory_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    memory_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    embedding_ref: Mapped[str | None] = mapped_column(String(36), ForeignKey("embeddings_meta.embedding_id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class AgentMemory(Base):
+    __tablename__ = "agent_memory"
+
+    agent_memory_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    repository_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("repositories.id"), nullable=True)
+    agent_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    artifact_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class RetrievalLog(Base):
+    __tablename__ = "retrieval_logs"
+
+    retrieval_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    repository_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    query_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    query_meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    results: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    top_k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+
+class ChatHistory(Base):
+    __tablename__ = "chat_history"
+
+    chat_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    repository_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    user_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assistant_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context_chunks: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)

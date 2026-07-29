@@ -22,11 +22,13 @@ class AdvancedChunker:
         self._parser = TreeSitterParser()
 
     async def chunk_file(
-        self, session: AsyncSession, repository_id: str, file_path: Path, content: str, reindex: bool = False
+        self, session: AsyncSession, repository_id: str, file_path: Path | str, content: str, reindex: bool = False
     ) -> List[dict[str, Any]]:
         """Chunk a single file and persist chunks to the DB. Returns created chunk metadata list."""
 
-        # ensure repository exists
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
         repo = await session.scalar(select(RepositoryRecord).where(RepositoryRecord.id == repository_id))
         if not repo:
             raise RuntimeError(f"Repository {repository_id} not found")
@@ -41,7 +43,6 @@ class AdvancedChunker:
         if existing_file and existing_file.content_hash == file_hash and not reindex:
             return []
 
-        # delete existing chunks when reindexing or changed
         if existing_file:
             await session.execute(delete(ChunkRecord).where(ChunkRecord.file_id == existing_file.id))
             existing_file.content_hash = file_hash

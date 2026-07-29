@@ -25,6 +25,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/rag-chat">RAG Chat</Link>
               <Link href="/project-graph">Project Graph</Link>
               <Link href="/memory-viewer">Memory Viewer</Link>
+              <Link href="/retrieval-debugger">Retrieval Debugger</Link>
+              <Link href="/agent-timeline">Agent Timeline</Link>
+              <Link href="/token-context">Token Context</Link>
+              <Link href="/system-health">System Health</Link>
             </nav>
           </header>
           <main className="container mx-auto p-6">{children}</main>

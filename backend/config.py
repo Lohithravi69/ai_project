@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     database_url: str = Field(default="postgresql+asyncpg://ai_dev_os:ai_dev_os_password@localhost:5432/ai_dev_os", alias="DATABASE_URL")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
+    chroma_api_url: str = Field(default="http://localhost:8001", alias="CHROMA_API_URL")
     ollama_chat_model: str = Field(default="qwen2.5-coder:latest", alias="OLLAMA_CHAT_MODEL")
     ollama_embed_model: str = Field(default="nomic-embed-text:latest", alias="OLLAMA_EMBED_MODEL")
     chroma_persist_directory: str = Field(default="./vector_store/chroma", alias="CHROMA_PERSIST_DIRECTORY")

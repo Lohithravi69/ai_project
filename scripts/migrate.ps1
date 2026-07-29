@@ -1,0 +1,5 @@
+param()
+
+$ErrorActionPreference = 'Stop'
+Set-Location (Join-Path $PSScriptRoot '..')
+python -m alembic upgrade head

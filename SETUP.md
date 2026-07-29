@@ -30,6 +30,8 @@ cp backend/.env.example backend/.env
 docker-compose up -d
 ```
 
+If you run the stack from a fresh machine, the compose project will wait for Postgres, Redis, Chroma, and Ollama, then bootstrap the required Ollama models automatically.
+
 This starts:
 - PostgreSQL (port 5432) — database
 - Redis (port 6379) — short-term memory & task queue
@@ -54,6 +56,18 @@ ollama pull qwen2.5-coder
 - **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
+
+### 5. Operational commands
+
+```powershell
+scripts\migrate.ps1
+scripts\backup.ps1
+scripts\restore.ps1
+scripts\shutdown.ps1
+scripts\reset.ps1
+```
+
+These commands keep deployment and recovery as one-step operations.
 
 ## Local Development (No Docker)
 

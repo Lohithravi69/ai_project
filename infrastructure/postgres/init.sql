@@ -157,3 +157,66 @@ CREATE TABLE IF NOT EXISTS chat_history (
     metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS agent_executions (
+    id VARCHAR(36) PRIMARY KEY,
+    repository_id VARCHAR(36) REFERENCES repositories(id) ON DELETE SET NULL,
+    agent_name VARCHAR(255) NOT NULL,
+    task_name VARCHAR(255) NOT NULL,
+    status VARCHAR(64) NOT NULL DEFAULT 'queued',
+    step_logs JSONB NOT NULL DEFAULT '[]'::jsonb,
+    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    error_message TEXT NOT NULL DEFAULT '',
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS action_plans (
+    id VARCHAR(36) PRIMARY KEY,
+    repository_id VARCHAR(36) REFERENCES repositories(id) ON DELETE SET NULL,
+    objective TEXT NOT NULL,
+    reasoning TEXT NOT NULL DEFAULT '',
+    affected_repositories_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    affected_files_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    estimated_risk VARCHAR(32) NOT NULL DEFAULT 'medium',
+    required_tools_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    rollback_strategy TEXT NOT NULL DEFAULT '',
+    approval_status VARCHAR(32) NOT NULL DEFAULT 'pending_approval',
+    execution_order_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    plan_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS execution_checkpoints (
+    id VARCHAR(36) PRIMARY KEY,
+    plan_id VARCHAR(36) REFERENCES action_plans(id) ON DELETE SET NULL,
+    repository_id VARCHAR(36) REFERENCES repositories(id) ON DELETE SET NULL,
+    branch_name VARCHAR(255) NOT NULL,
+    git_sha VARCHAR(128) NOT NULL,
+    modified_files_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    reasoning TEXT NOT NULL DEFAULT '',
+    plan_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tool_invocation_logs (
+    id VARCHAR(36) PRIMARY KEY,
+    plan_id VARCHAR(36) REFERENCES action_plans(id) ON DELETE SET NULL,
+    checkpoint_id VARCHAR(36) REFERENCES execution_checkpoints(id) ON DELETE SET NULL,
+    repository_id VARCHAR(36) REFERENCES repositories(id) ON DELETE SET NULL,
+    tool_name VARCHAR(255) NOT NULL,
+    inputs_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    outputs_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    dry_run BOOLEAN NOT NULL DEFAULT TRUE,
+    success BOOLEAN NOT NULL DEFAULT FALSE,
+    execution_ms INTEGER NOT NULL DEFAULT 0,
+    exception_message TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

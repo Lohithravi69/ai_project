@@ -42,7 +42,11 @@ services:
     volumes:
       - chroma_data:/chroma/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test:
+        [
+          "CMD-SHELL",
+          "python - <<'PY'\nimport urllib.request\nurllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')\nPY",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -56,6 +60,32 @@ services:
     volumes:
       - ollama_data:/root/.ollama
       - ./models:/models
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  model-bootstrap:
+    image: ollama/ollama:latest
+    container_name: ai-dev-os-model-bootstrap
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen2.5-coder:latest}
+      OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text:latest}
+    depends_on:
+      ollama:
+        condition: service_started
+    entrypoint: ["sh", "-lc"]
+    command: >
+      set -e;
+      until ollama list >/dev/null 2>&1; do
+        echo 'waiting for ollama...';
+        sleep 3;
+      done;
+      ollama pull "$OLLAMA_CHAT_MODEL";
+      ollama pull "$OLLAMA_EMBED_MODEL";
 
   backend:
     build:
@@ -69,6 +99,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://ai_dev_os:ai_dev_os_password@postgres:5432/ai_dev_os
       REDIS_URL: redis://redis:6379/0
       OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_API_URL: http://chroma:8000
       CHROMA_PERSIST_DIRECTORY: /app/vector_store/chroma
       REPOSITORIES_ROOT: /app/repositories
     depends_on:
@@ -78,6 +109,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
+      model-bootstrap:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     volumes:
@@ -103,6 +136,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://ai_dev_os:ai_dev_os_password@postgres:5432/ai_dev_os
       REDIS_URL: redis://redis:6379/0
       OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_API_URL: http://chroma:8000
       CHROMA_PERSIST_DIRECTORY: /app/vector_store/chroma
       REPOSITORIES_ROOT: /app/repositories
     command: celery -A backend.execution.celery_app:celery_app worker --loglevel=info
@@ -115,6 +149,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
+      model-bootstrap:
+        condition: service_completed_successfully
     volumes:
       - ./repositories:/app/repositories
       - ./vector_store:/app/vector_store
@@ -133,6 +169,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://ai_dev_os:ai_dev_os_password@postgres:5432/ai_dev_os
       REDIS_URL: redis://redis:6379/0
       OLLAMA_BASE_URL: http://ollama:11434
+      CHROMA_API_URL: http://chroma:8000
       CHROMA_PERSIST_DIRECTORY: /app/vector_store/chroma
       REPOSITORIES_ROOT: /app/repositories
     command: celery -A backend.execution.celery_app:celery_app beat --loglevel=info
@@ -161,7 +198,11 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:3000').then(r=>process.exit(r.ok ? 0 : 1)).catch(()=>process.exit(1))\"",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

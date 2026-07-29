@@ -26,6 +26,7 @@ class RagRequest(BaseModel):
 class RagResponse(BaseModel):
     answer: str
     sources: list
+    debug: dict | None = None
 
 
 @router.post("/chat/rag", response_model=RagResponse)
@@ -37,7 +38,13 @@ async def chat_rag(payload: RagRequest, session: AsyncSession = Depends(get_sess
     orchestrator = RagOrchestrator(ollama, retriever, memory)
 
     try:
-        res = await orchestrator.answer(payload.query, session_id=payload.session_id, repository_id=payload.repository_id, top_k=payload.top_k)
+        res = await orchestrator.answer(
+            payload.query,
+            session_id=payload.session_id,
+            repository_id=payload.repository_id,
+            top_k=payload.top_k,
+            db_session=session,
+        )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return RagResponse(answer=res["answer"], sources=res["sources"]) 
+    return RagResponse(answer=res["answer"], sources=res["sources"], debug=res.get("debug"))

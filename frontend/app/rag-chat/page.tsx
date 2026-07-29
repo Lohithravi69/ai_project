@@ -8,16 +8,19 @@ export default function RagChatPage() {
   const [repositoryId, setRepositoryId] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [sources, setSources] = useState<Array<Record<string, unknown>>>([]);
+  const [debug, setDebug] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSend() {
     setLoading(true);
     setAnswer(null);
     setSources([]);
+    setDebug(null);
     try {
       const res = await ragChat(query, repositoryId || undefined);
       setAnswer(res.answer);
       setSources(res.sources ?? []);
+      setDebug(res.debug ?? null);
     } catch (err: any) {
       setAnswer(`Error: ${err?.message ?? String(err)}`);
     } finally {
@@ -65,6 +68,13 @@ export default function RagChatPage() {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {debug && (
+        <section className="mt-6 rounded border bg-white p-4">
+          <h3 className="font-medium">Debug Trace</h3>
+          <pre className="mt-2 max-h-[24rem] overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(debug, null, 2)}</pre>
         </section>
       )}
     </div>

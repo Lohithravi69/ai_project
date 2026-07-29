@@ -53,6 +53,8 @@ Use the example files as the source of truth:
 docker compose up --build
 ```
 
+The compose stack now includes dependency health checks, automatic Ollama model bootstrap, and startup ordering for Postgres, Redis, Chroma, backend, and workers.
+
 3. Open the dashboard at `http://localhost:3000`.
 4. The backend API is available at `http://localhost:8000`.
 
@@ -158,6 +160,17 @@ pytest backend/tests/ -v
 ```
 
 CI/CD pipeline is configured in `.github/workflows/ci.yml`.
+
+## Operations
+
+- Start: `docker compose up --build`
+- Stop: `scripts/shutdown.ps1`
+- Reset: `scripts/reset.ps1`
+- Migrate schema: `scripts/migrate.ps1`
+- Backup database: `scripts/backup.ps1`
+- Restore database: `scripts/restore.ps1`
+
+The health endpoint now reports per-dependency status at `GET /api/health`.
 
 ---
 

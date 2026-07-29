@@ -66,7 +66,7 @@ export async function semanticSearch(query: string, repositoryId?: string, topK 
 }
 
 export async function ragChat(query: string, repositoryId?: string, sessionId?: string, topK = 8) {
-  return request<{ answer: string; sources: Array<Record<string, unknown>> }>(`/api/v2/chat/rag`, {
+  return request<{ answer: string; sources: Array<Record<string, unknown>>; debug?: Record<string, unknown> }>(`/api/v2/chat/rag`, {
     method: 'POST',
     body: JSON.stringify({ query, repository_id: repositoryId ?? null, session_id: sessionId ?? null, top_k: topK }),
   });
@@ -98,4 +98,20 @@ export async function getConversationMemory(repositoryId?: string, sessionId?: s
     method: 'POST',
     body: JSON.stringify({ repository_id: repositoryId ?? null, session_id: sessionId ?? null, limit }),
   });
+}
+
+export async function getAgentObservability() {
+  return request<{ executions: Array<Record<string, any>>; task_queue: Record<string, any> }>(`/api/v2/observability/agents`);
+}
+
+export async function getRetrievalObservability() {
+  return request<{ logs: Array<Record<string, any>> }>(`/api/v2/observability/retrieval`);
+}
+
+export async function getUsageObservability() {
+  return request<{ total_prompt_tokens: number; total_completion_tokens: number; avg_context_size: number; avg_retrieved_chunks: number; avg_response_time_ms: number; recent_queries: number }>(`/api/v2/observability/usage`);
+}
+
+export async function getSystemHealth() {
+  return request<{ status: string; dependencies: Array<Record<string, any>>; workers: Record<string, any>; resources: Record<string, any> }>(`/api/v2/system/health`);
 }

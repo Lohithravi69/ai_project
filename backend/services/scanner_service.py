@@ -12,7 +12,8 @@ from backend.database.models import ChunkRecord, FileRecord, RepositoryRecord, S
 from backend.embeddings.chroma_service import ChromaService
 from backend.embeddings.ollama_client import OllamaClient
 from backend.parsers.tree_sitter_parser import ParsedFile, TreeSitterParser
-from backend.utils.files import chunk_text, hash_content, iter_text_files, safe_read_text
+from backend.services.chunking import AdvancedChunker
+from backend.utils.files import hash_content, iter_text_files, safe_read_text
 from backend.utils.repository import repository_local_path
 
 
@@ -23,6 +24,7 @@ class ScannerService:
         self.session = session
         self.settings = get_settings()
         self.parser = TreeSitterParser()
+        self.chunker = AdvancedChunker()
         self.ollama = OllamaClient(self.settings.ollama_base_url, self.settings.ollama_chat_model, self.settings.ollama_embed_model)
         self.chroma = ChromaService(self.settings.chroma_persist_directory)
 
@@ -62,8 +64,9 @@ class ScannerService:
                 if not text:
                     continue
                 parsed = self.parser.parse(file_path, text)
-                file_record = await self._upsert_file(repository.id, file_path, parsed, text)
-                await self._upsert_chunks(repository.id, file_record, text)
+                changed, file_record = await self._upsert_file(repository.id, file_path, parsed, text)
+                if changed:
+                    await self._upsert_chunks(repository.id, file_record, text, parsed)
                 file_counter += 1
                 function_counter += len(parsed.functions)
                 class_counter += len(parsed.classes)
@@ -93,7 +96,7 @@ class ScannerService:
             await self.session.commit()
             raise
 
-    async def _upsert_file(self, repository_id: str, file_path: Path, parsed: ParsedFile, text: str) -> FileRecord:
+    async def _upsert_file(self, repository_id: str, file_path: Path, parsed: ParsedFile, text: str) -> tuple[bool, FileRecord]:
         content_hash = hash_content(text)
         result = await self.session.execute(
             select(FileRecord).where(FileRecord.repository_id == repository_id, FileRecord.path == str(file_path))
@@ -101,13 +104,15 @@ class ScannerService:
         file_record = result.scalar_one_or_none()
         summary = self._build_file_summary(parsed)
         if file_record:
+            if file_record.content_hash == content_hash:
+                return False, file_record
             file_record.language = parsed.language
             file_record.content_hash = content_hash
             file_record.summary = summary
             file_record.symbols_json = {"functions": parsed.functions, "classes": parsed.classes, "imports": parsed.imports, "routes": parsed.routes, "symbols": parsed.symbols}
             await self.session.commit()
             await self.session.refresh(file_record)
-            return file_record
+            return True, file_record
 
         file_record = FileRecord(
             repository_id=repository_id,
@@ -120,29 +125,32 @@ class ScannerService:
         self.session.add(file_record)
         await self.session.commit()
         await self.session.refresh(file_record)
-        return file_record
+        return True, file_record
 
-    async def _upsert_chunks(self, repository_id: str, file_record: FileRecord, text: str) -> None:
-        chunks = chunk_text(text)
-        if not chunks:
+    async def _upsert_chunks(self, repository_id: str, file_record: FileRecord, text: str, parsed: ParsedFile) -> None:
+        chunk_metas = await self.chunker.chunk_file(self.session, repository_id, Path(file_record.path), text, reindex=True)
+        if not chunk_metas:
             return
-        embeddings = await self.ollama.embed_texts(chunks)
-        ids = [f"{file_record.id}:{index}" for index in range(len(chunks))]
-        metadatas = [
-            {"repository_id": repository_id, "file_id": file_record.id, "path": file_record.path, "chunk_index": index, "language": file_record.language}
-            for index in range(len(chunks))
-        ]
-        self.chroma.upsert_chunks(ids=ids, documents=chunks, embeddings=embeddings, metadatas=metadatas)
-        for index, chunk in enumerate(chunks):
-            chunk_record = ChunkRecord(
-                file_id=file_record.id,
-                repository_id=repository_id,
-                chunk_index=index,
-                content=chunk,
-                embedding_id=ids[index],
-                metadata_json=metadatas[index],
-            )
-            self.session.add(chunk_record)
+        chunk_ids = [cm["id"] for cm in chunk_metas]
+        result = await self.session.execute(
+            select(ChunkRecord).where(ChunkRecord.id.in_(chunk_ids)).order_by(ChunkRecord.chunk_index)
+        )
+        chunk_records = list(result.scalars().all())
+        contents = [cr.content for cr in chunk_records]
+        embeddings = await self.ollama.embed_texts(contents)
+        chroma_ids = []
+        chroma_docs = []
+        chroma_embs = []
+        chroma_metas = []
+        for idx, cr in enumerate(chunk_records):
+            meta = dict(cr.metadata_json or {})
+            meta.update({"repository_id": repository_id, "file_id": file_record.id, "path": file_record.path, "chunk_index": cr.chunk_index})
+            chroma_ids.append(cr.id)
+            chroma_docs.append(cr.content)
+            chroma_embs.append(embeddings[idx])
+            chroma_metas.append(meta)
+            cr.embedding_id = cr.id
+        self.chroma.upsert_chunks(ids=chroma_ids, documents=chroma_docs, embeddings=chroma_embs, metadatas=chroma_metas)
         await self.session.commit()
 
     @staticmethod

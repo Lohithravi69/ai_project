@@ -118,8 +118,67 @@ class ProjectHealth:
             if cnt == 0:
                 report["dead_code_candidates"].append({"symbol": k})
 
-        # circular dependencies: best-effort via import graph from file.symbols_json
-        # If project_graph_edges exists, we could detect cycles, but fallback to simple heuristic
-        # (not implemented fully here)
+        # circular dependencies via import graph
+        import_graph: dict[str, list[str]] = {}
+        for f in files:
+            try:
+                syms = f.symbols_json or {}
+                file_imports: list[str] = syms.get("imports", [])
+                import_graph[f.path] = []
+                for imp in file_imports:
+                    resolved = self._resolve_import_to_file(imp, files)
+                    if resolved:
+                        import_graph[f.path].append(resolved)
+            except Exception:
+                continue
+
+        cycles = self._detect_cycles(import_graph)
+        for cycle in cycles:
+            report["circular_dependencies"].append({"cycle": cycle})
 
         return report
+
+    @staticmethod
+    def _resolve_import_to_file(imp: str, all_files: list[FileRecord]) -> str | None:
+        """Resolve a module import string to a file path in the repository."""
+        imp_path = imp.replace(".", "/")
+        candidates = []
+        for f in all_files:
+            p = f.path.replace("\\", "/")
+            if imp_path in p:
+                candidates.append(p)
+        return candidates[0] if candidates else None
+
+    @staticmethod
+    def _detect_cycles(graph: dict[str, list[str]]) -> list[list[str]]:
+        """Detect cycles in a directed graph using DFS."""
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color: dict[str, int] = {node: WHITE for node in graph}
+        parent: dict[str, str | None] = {}
+        cycles: list[list[str]] = []
+
+        def dfs(node: str) -> None:
+            color[node] = GRAY
+            for neighbor in graph.get(node, []):
+                if neighbor not in color:
+                    color[neighbor] = WHITE
+                if color[neighbor] == GRAY:
+                    cycle = []
+                    cur = node
+                    while cur != neighbor:
+                        cycle.append(cur)
+                        cur = parent.get(cur, "")
+                    cycle.append(neighbor)
+                    cycle.append(node)
+                    cycles.append(cycle)
+                elif color[neighbor] == WHITE:
+                    parent[neighbor] = node
+                    dfs(neighbor)
+            color[node] = BLACK
+
+        for node in list(graph):
+            if color.get(node, WHITE) == WHITE:
+                parent[node] = None
+                dfs(node)
+
+        return cycles
