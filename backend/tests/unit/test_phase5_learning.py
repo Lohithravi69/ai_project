@@ -231,31 +231,37 @@ class TestSelfEvaluator:
 
 class TestRepoAnalytics:
     def test_defect_rate_empty(self):
-        analytics = RepoAnalytics()
+        store = ExperienceStore(directory=tempfile.mkdtemp())
+        analytics = RepoAnalytics(store)
         rate = analytics.defect_rate()
         assert rate == 0.0
 
     def test_frequently_changed_files_empty(self):
-        analytics = RepoAnalytics()
+        store = ExperienceStore(directory=tempfile.mkdtemp())
+        analytics = RepoAnalytics(store)
         files = analytics.frequently_changed_files()
         assert files == []
 
     def test_common_failure_patterns_empty(self):
-        analytics = RepoAnalytics()
+        store = ExperienceStore(directory=tempfile.mkdtemp())
+        analytics = RepoAnalytics(store)
         patterns = analytics.common_failure_patterns()
         assert patterns == []
 
     def test_avg_duration_by_outcome_empty(self):
-        analytics = RepoAnalytics()
+        store = ExperienceStore(directory=tempfile.mkdtemp())
+        analytics = RepoAnalytics(store)
         durations = analytics.avg_duration_by_outcome()
         assert durations == {}
 
     def test_tool_usage_frequency_empty(self):
-        analytics = RepoAnalytics()
+        store = ExperienceStore(directory=tempfile.mkdtemp())
+        analytics = RepoAnalytics(store)
         tools = analytics.tool_usage_frequency()
         assert tools == []
 
     def test_summary_empty(self):
-        analytics = RepoAnalytics()
+        store = ExperienceStore(directory=tempfile.mkdtemp())
+        analytics = RepoAnalytics(store)
         summary = analytics.summary()
         assert "error" in summary
