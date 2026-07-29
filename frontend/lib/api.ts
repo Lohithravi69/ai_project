@@ -115,3 +115,114 @@ export async function getUsageObservability() {
 export async function getSystemHealth() {
   return request<{ status: string; dependencies: Array<Record<string, any>>; workers: Record<string, any>; resources: Record<string, any> }>(`/api/v2/system/health`);
 }
+
+// ── Phase 3 Full (v4) API ──────────────────────────────────────────────────
+
+export async function v4ListTools() {
+  return request<Array<{
+    name: string; description: string; version: string;
+    permission_level: string; timeout_seconds: number;
+    rollback_support: boolean; dry_run_support: boolean;
+    input_schema: Record<string, any>; output_schema: Record<string, any>;
+  }>>(`/api/v4/tools`);
+}
+
+export async function v4CreatePlan(payload: {
+  objective: string; request_text: string;
+  repository_ids?: string[]; affected_files?: string[]; reasoning?: string;
+}) {
+  return request<Record<string, any>>(`/api/v4/plan`, {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export async function v4GetPlan(planId: string) {
+  return request<Record<string, any>>(`/api/v4/plan/${planId}`);
+}
+
+export async function v4ListPlans(limit = 50) {
+  return request<Array<Record<string, any>>>(`/api/v4/plans?limit=${limit}`);
+}
+
+export async function v4DryRunTool(payload: {
+  tool_name: string; inputs: Record<string, any>;
+  plan_id?: string; workspace_id?: string; reasoning?: string;
+}) {
+  return request<Record<string, any>>(`/api/v4/tools/dry-run`, {
+    method: 'POST', body: JSON.stringify({ ...payload, dry_run: true }),
+  });
+}
+
+export async function v4RunTool(payload: {
+  tool_name: string; inputs: Record<string, any>;
+  plan_id?: string; workspace_id?: string; dry_run?: boolean; reasoning?: string;
+}) {
+  return request<Record<string, any>>(`/api/v4/tools/run`, {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export async function v4ListApprovalRequests(planId?: string, status?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (planId) params.set('plan_id', planId);
+  if (status) params.set('status', status);
+  params.set('limit', String(limit));
+  return request<Array<Record<string, any>>>(`/api/v4/approval?${params}`);
+}
+
+export async function v4GetApprovalRequest(approvalId: string) {
+  return request<Record<string, any>>(`/api/v4/approval/${approvalId}`);
+}
+
+export async function v4ApproveRequest(approvalId: string, reviewer = '') {
+  return request<Record<string, any>>(`/api/v4/approval/approve?approval_id=${approvalId}`, {
+    method: 'POST', body: JSON.stringify({ approved: true, reviewer }),
+  });
+}
+
+export async function v4RejectRequest(approvalId: string, reason = '', reviewer = '') {
+  return request<Record<string, any>>(`/api/v4/approval/reject?approval_id=${approvalId}`, {
+    method: 'POST', body: JSON.stringify({ reason, reviewer }),
+  });
+}
+
+export async function v4ListWorkspaces(repositoryId?: string, status?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (repositoryId) params.set('repository_id', repositoryId);
+  if (status) params.set('status', status);
+  params.set('limit', String(limit));
+  return request<Array<Record<string, any>>>(`/api/v4/workspaces?${params}`);
+}
+
+export async function v4GetWorkspace(workspaceId: string) {
+  return request<Record<string, any>>(`/api/v4/workspaces/${workspaceId}`);
+}
+
+export async function v4ListCheckpoints(planId?: string, repositoryId?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (planId) params.set('plan_id', planId);
+  if (repositoryId) params.set('repository_id', repositoryId);
+  params.set('limit', String(limit));
+  return request<Array<Record<string, any>>>(`/api/v4/checkpoints?${params}`);
+}
+
+export async function v4Rollback(checkpointId: string, dryRun = false) {
+  return request<Record<string, any>>(`/api/v4/rollback`, {
+    method: 'POST', body: JSON.stringify({ checkpoint_id: checkpointId, dry_run: dryRun }),
+  });
+}
+
+export async function v4ListExecutionLogs(planId?: string, level?: string, limit = 100) {
+  const params = new URLSearchParams();
+  if (planId) params.set('plan_id', planId);
+  if (level) params.set('level', level);
+  params.set('limit', String(limit));
+  return request<Array<Record<string, any>>>(`/api/v4/execution/logs?${params}`);
+}
+
+export async function v4ListRollbackHistory(planId?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (planId) params.set('plan_id', planId);
+  params.set('limit', String(limit));
+  return request<Array<Record<string, any>>>(`/api/v4/rollback/history?${params}`);
+}

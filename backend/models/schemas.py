@@ -225,5 +225,177 @@ class RollbackResponse(BaseModel):
     exception_message: str = ""
 
 
+# ── Phase 3 Schemas ─────────────────────────────────────────────────────────
+
+
+class ToolDefinition(BaseModel):
+    id: str = ""
+    name: str
+    description: str = ""
+    version: str = "1.0.0"
+    permission_level: str = "read"
+    timeout_seconds: int = 30
+    rollback_support: bool = False
+    dry_run_support: bool = True
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolRunRequest(BaseModel):
+    tool_name: str = Field(min_length=1)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    plan_id: str | None = None
+    workspace_id: str | None = None
+    dry_run: bool = True
+    reasoning: str = Field(default="")
+    execution_id: str | None = None
+
+
+class ToolRunResponse(BaseModel):
+    tool_name: str
+    dry_run: bool
+    success: bool
+    execution_ms: int = 0
+    result: dict[str, Any] = Field(default_factory=dict)
+    affected_files: list[str] = Field(default_factory=list)
+    diff_preview: str | None = None
+    estimated_impact: str = ""
+    risks: list[str] = Field(default_factory=list)
+    requires_approval: bool = False
+    checkpoint_id: str | None = None
+    workspace_id: str | None = None
+    exception_message: str = ""
+    execution_id: str | None = None
+
+
+class AIReasoning(BaseModel):
+    reasoning: str = ""
+    alternatives_considered: list[str] = Field(default_factory=list)
+    why_this_choice: str = ""
+    confidence: float = 0.0
+    expected_risks: list[str] = Field(default_factory=list)
+
+
+class ExecutionPlanCreate(BaseModel):
+    objective: str = Field(min_length=1)
+    request_text: str = Field(min_length=1)
+    repository_ids: list[str] = Field(default_factory=list)
+    affected_files: list[str] = Field(default_factory=list)
+    reasoning: str = Field(default="")
+    ai_reasoning: AIReasoning = Field(default_factory=AIReasoning)
+    execution_id: str = ""
+
+
+class ExecutionPlanRead(BaseModel):
+    id: str
+    objective: str
+    reasoning: str = ""
+    repository_ids: list[str] = Field(default_factory=list)
+    affected_files: list[str] = Field(default_factory=list)
+    required_tools: list[str] = Field(default_factory=list)
+    execution_order: list[dict[str, Any]] = Field(default_factory=list)
+    risk_score: str = "medium"
+    estimated_duration_ms: int = 0
+    rollback_strategy: str = ""
+    approval_required: bool = True
+    approval_status: str = "pending"
+    plan: dict[str, Any] = Field(default_factory=dict)
+    ai_reasoning: AIReasoning = Field(default_factory=AIReasoning)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    execution_id: str | None = None
+
+
+class DiffOutput(BaseModel):
+    unified: str = ""
+    side_by_side: str = ""
+    file_summary: list[dict[str, Any]] = Field(default_factory=list)
+    added_lines: int = 0
+    deleted_lines: int = 0
+    modified_functions: list[str] = Field(default_factory=list)
+    estimated_impact: str = ""
+
+
+class ApprovalRequestRead(BaseModel):
+    id: str
+    plan_id: str
+    diff_preview: str = ""
+    explanation: str = ""
+    status: str = "pending"
+    reviewer: str | None = None
+    reviewed_at: datetime | None = None
+    rejection_reason: str = ""
+    created_at: datetime | None = None
+    execution_id: str | None = None
+
+
+class ApprovalAction(BaseModel):
+    approved: bool = True
+    reviewer: str = Field(default="")
+    rejection_reason: str = Field(default="")
+
+
+class WorkspaceRead(BaseModel):
+    id: str
+    plan_id: str | None = None
+    repository_id: str | None = None
+    repository_full_name: str = ""
+    workspace_path: str = ""
+    branch_name: str = ""
+    base_branch: str = ""
+    status: str = "created"
+    commit_sha: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    execution_id: str | None = None
+
+
+class CheckpointReadV2(BaseModel):
+    id: str
+    plan_id: str | None = None
+    workspace_id: str | None = None
+    repository_id: str | None = None
+    branch_name: str = ""
+    git_sha: str = ""
+    tool_name: str = ""
+    modified_files: list[str] = Field(default_factory=list)
+    reasoning: str = ""
+    plan: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime | None = None
+    execution_id: str | None = None
+
+
+class RollbackRequestV2(BaseModel):
+    checkpoint_id: str
+    rollback_types: list[str] = Field(default_factory=lambda: ["git"])
+    dry_run: bool = False
+
+
+class RollbackResponseV2(BaseModel):
+    checkpoint_id: str
+    success: bool
+    dry_run: bool
+    summary: str = ""
+    restored_branch: str | None = None
+    restored_git_sha: str | None = None
+    rollback_results: dict[str, Any] = Field(default_factory=dict)
+    execution_ms: int = 0
+    exception_message: str = ""
+    execution_id: str | None = None
+
+
+class ExecutionLogRead(BaseModel):
+    id: str
+    plan_id: str | None = None
+    tool_execution_id: str | None = None
+    level: str = "info"
+    message: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime | None = None
+    execution_id: str | None = None
+
+
 GitHubSyncResponse.model_rebuild()
 RepositoryFilesResponse.model_rebuild()

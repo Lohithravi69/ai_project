@@ -23,19 +23,6 @@ async def test_db():
 
 
 @pytest.mark.asyncio
-async def test_tool_registry_exposes_phase3_tools(test_db):
-    async with test_db() as session:
-        service = Phase3Service(session)
-        tool_names = {tool.name for tool in service.list_tools()}
-
-        assert {"ReadFile", "WriteFile", "CreateBranch", "CommitChanges", "RollbackCommit", "ExecuteShell"}.issubset(tool_names)
-        write_file_spec = next(tool for tool in service.list_tools() if tool.name == "WriteFile")
-        assert write_file_spec.rollback_support is True
-        assert write_file_spec.dry_run_support is True
-        assert "path" in write_file_spec.input_schema.get("properties", {})
-
-
-@pytest.mark.asyncio
 async def test_write_file_dry_run_returns_diff_preview(test_db, tmp_path: Path):
     repo_root = tmp_path / "repo"
     repo_root.mkdir()

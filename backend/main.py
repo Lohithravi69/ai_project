@@ -15,6 +15,7 @@ from backend.api.v2.project_graph import router as project_graph_router
 from backend.api.v2.memory import router as memory_router
 from backend.api.v2.observability import router as observability_router
 from backend.api.v3.phase3 import router as phase3_router
+from backend.api.v4.router import router as phase4_router
 from backend.config import get_settings
 from backend.database.base import Base
 from backend.database.session import engine
@@ -54,3 +55,4 @@ app.include_router(project_graph_router)
 app.include_router(memory_router)
 app.include_router(observability_router)
 app.include_router(phase3_router)
+app.include_router(phase4_router)

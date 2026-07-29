@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -29,7 +29,7 @@ class MemoryService:
         self.short_term_ttl = int(getattr(self.settings, "short_term_memory_ttl_seconds", 60 * 60 * 24))
 
     async def store_short_term(self, session_id: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> str:
-        item = {"id": str(uuid4()), "content": content, "metadata": metadata or {}, "ts": datetime.utcnow().isoformat()}
+        item = {"id": str(uuid4()), "content": content, "metadata": metadata or {}, "ts": datetime.now(timezone.utc).isoformat()}
         key = f"memory:short:{session_id}"
         await self.redis.rpush(key, json.dumps(item))
         await self.redis.expire(key, self.short_term_ttl)
