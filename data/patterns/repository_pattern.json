@@ -1,0 +1,18 @@
+{
+  "name": "Repository Pattern",
+  "description": "Data access layer separating business logic from ORM",
+  "category": "architecture",
+  "template_code": "from abc import ABC, abstractmethod\nfrom sqlalchemy import select\nfrom sqlalchemy.ext.asyncio import AsyncSession\n\nclass BaseRepository(ABC):\n    def __init__(self, session: AsyncSession):\n        self._session = session\n\nclass ItemRepository(BaseRepository):\n    async def get_by_id(self, item_id: str):\n        return await self._session.get(Item, item_id)\n\n    async def list_all(self, skip: int = 0, limit: int = 100):\n        result = await self._session.execute(\n            select(Item).offset(skip).limit(limit)\n        )\n        return list(result.scalars().all())\n\n    async def add(self, item: Item) -> Item:\n        self._session.add(item)\n        await self._session.commit()\n        await self._session.refresh(item)\n        return item\n\n    async def delete(self, item: Item) -> None:\n        await self._session.delete(item)\n        await self._session.commit()",
+  "dependencies": [
+    "sqlalchemy[asyncio]"
+  ],
+  "best_practices": [
+    "Keep repositories focused on a single entity",
+    "Do not leak ORM session outside repository",
+    "Use interfaces (ABC) for testability"
+  ],
+  "related_patterns": [
+    "CRUD APIs",
+    "Error handling"
+  ]
+}

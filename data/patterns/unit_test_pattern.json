@@ -1,0 +1,16 @@
+{
+  "name": "Unit Test Pattern",
+  "description": "Pytest-based unit test structure with fixtures and mocking",
+  "category": "testing",
+  "template_code": "import pytest\nfrom unittest.mock import AsyncMock, patch\n\n@pytest.fixture\ndef mock_session():\n    return AsyncMock()\n\n@pytest.mark.asyncio\nasync def test_create_item(mock_session):\n    from app.repositories import ItemRepository\n    repo = ItemRepository(mock_session)\n    item = await repo.get_by_id('test-id')\n    assert item is not None",
+  "dependencies": [
+    "pytest",
+    "pytest-asyncio"
+  ],
+  "best_practices": [
+    "Use fixtures for shared setup",
+    "Mock external dependencies",
+    "Test one behavior per test function"
+  ],
+  "related_patterns": []
+}

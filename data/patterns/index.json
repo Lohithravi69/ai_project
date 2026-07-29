@@ -1,0 +1,63 @@
+{
+  "JWT Authentication": {
+    "category": "authentication",
+    "description": "JSON Web Token based authentication middleware for FastAPI",
+    "dependencies": [
+      "python-jose[cryptography]",
+      "passlib[bcrypt]"
+    ]
+  },
+  "CRUD APIs": {
+    "category": "api",
+    "description": "Standard Create-Read-Update-Delete endpoints for a resource",
+    "dependencies": [
+      "fastapi",
+      "sqlalchemy[asyncio]"
+    ]
+  },
+  "Pagination": {
+    "category": "api",
+    "description": "Offset-based pagination for list endpoints",
+    "dependencies": [
+      "pydantic",
+      "sqlalchemy"
+    ]
+  },
+  "Logging": {
+    "category": "infrastructure",
+    "description": "Structured logging setup with rotation and request IDs",
+    "dependencies": [
+      "loguru"
+    ]
+  },
+  "Repository Pattern": {
+    "category": "architecture",
+    "description": "Data access layer separating business logic from ORM",
+    "dependencies": [
+      "sqlalchemy[asyncio]"
+    ]
+  },
+  "Error Handling": {
+    "category": "infrastructure",
+    "description": "Centralized exception handling and error responses for FastAPI",
+    "dependencies": [
+      "fastapi"
+    ]
+  },
+  "React Form": {
+    "category": "frontend",
+    "description": "Controlled form component with validation using React Hook Form",
+    "dependencies": [
+      "react-hook-form",
+      "@hookform/resolvers"
+    ]
+  },
+  "Unit Test Pattern": {
+    "category": "testing",
+    "description": "Pytest-based unit test structure with fixtures and mocking",
+    "dependencies": [
+      "pytest",
+      "pytest-asyncio"
+    ]
+  }
+}

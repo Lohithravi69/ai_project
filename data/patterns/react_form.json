@@ -1,0 +1,18 @@
+{
+  "name": "React Form",
+  "description": "Controlled form component with validation using React Hook Form",
+  "category": "frontend",
+  "template_code": "import React from 'react'\nimport { useForm } from 'react-hook-form'\n\ninterface FormData {\n  name: string\n  email: string\n}\n\nexport function MyForm() {\n  const { register, handleSubmit, formState: { errors } } = useForm<FormData>()\n\n  const onSubmit = (data: FormData) => {\n    console.log(data)\n  }\n\n  return (\n    <form onSubmit={handleSubmit(onSubmit)}>\n      <div>\n        <label>Name</label>\n        <input {...register('name', { required: 'Name is required' })} />\n        {errors.name && <span>{errors.name.message}</span>}\n      </div>\n      <div>\n        <label>Email</label>\n        <input {...register('email', {\n          required: 'Email is required',\n          pattern: { value: /^\\S+@\\S+$/i, message: 'Invalid email' },\n        })} />\n        {errors.email && <span>{errors.email.message}</span>}\n      </div>\n      <button type='submit'>Submit</button>\n    </form>\n  )\n}",
+  "dependencies": [
+    "react-hook-form",
+    "@hookform/resolvers"
+  ],
+  "best_practices": [
+    "Use TypeScript for form data types",
+    "Validate on both client and server",
+    "Show inline validation errors for better UX"
+  ],
+  "related_patterns": [
+    "CRUD APIs"
+  ]
+}

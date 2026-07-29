@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from backend.agents.base import AgentContext, BaseAgent
 from backend.database.models import ExecutionPlanRecord
+from backend.learning.experience_store import ExperienceStore
+from backend.learning.pattern_store import PatternStore
 from backend.models.schemas import AIReasoning
 
 
@@ -16,6 +18,22 @@ class PlannerAgent(BaseAgent):
 
     async def run(self) -> AgentContext:
         started_at = time.perf_counter()
+
+        experience_store = ExperienceStore()
+        pattern_store = PatternStore()
+        similar = experience_store.search_similar(self.context.user_request, limit=3)
+        matching_patterns = pattern_store.search_patterns(self.context.user_request)
+
+        if similar:
+            self.context.plan["similar_experiences"] = [
+                {"objective": e.objective[:200], "outcome": e.outcome}
+                for e, _score in similar
+            ]
+        if matching_patterns:
+            self.context.plan["applicable_patterns"] = [
+                {"name": p.name, "category": p.category}
+                for p in matching_patterns
+            ]
 
         text_blob = self.context.user_request.lower()
         modifying = any(kw in text_blob for kw in ["write", "edit", "update", "create", "delete", "remove", "refactor", "implement", "patch", "commit", "rollback", "move"])

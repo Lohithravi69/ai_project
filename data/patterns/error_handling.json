@@ -1,0 +1,18 @@
+{
+  "name": "Error Handling",
+  "description": "Centralized exception handling and error responses for FastAPI",
+  "category": "infrastructure",
+  "template_code": "from fastapi import FastAPI, Request\nfrom fastapi.responses import JSONResponse\n\nclass AppException(Exception):\n    def __init__(self, message: str, status_code: int = 400):\n        self.message = message\n        self.status_code = status_code\n\ndef register_error_handlers(app: FastAPI):\n    @app.exception_handler(AppException)\n    async def app_exception_handler(request: Request, exc: AppException):\n        return JSONResponse(\n            status_code=exc.status_code,\n            content={'detail': exc.message, 'type': 'app_error'},\n        )\n\n    @app.exception_handler(Exception)\n    async def unhandled_exception_handler(request: Request, exc: Exception):\n        return JSONResponse(\n            status_code=500,\n            content={'detail': 'Internal server error', 'type': 'server_error'},\n        )",
+  "dependencies": [
+    "fastapi"
+  ],
+  "best_practices": [
+    "Never leak stack traces to API responses",
+    "Log full exception details server-side",
+    "Use typed exceptions for different error categories"
+  ],
+  "related_patterns": [
+    "Logging",
+    "CRUD APIs"
+  ]
+}

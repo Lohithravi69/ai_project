@@ -1,0 +1,19 @@
+{
+  "name": "CRUD APIs",
+  "description": "Standard Create-Read-Update-Delete endpoints for a resource",
+  "category": "api",
+  "template_code": "from fastapi import APIRouter, Depends, HTTPException, status\nfrom sqlalchemy.ext.asyncio import AsyncSession\nfrom app.database import get_session\nfrom app.models import Item\nfrom app.schemas import ItemCreate, ItemRead, ItemUpdate\n\nrouter = APIRouter(prefix='/items', tags=['items'])\n\n@router.post('/', response_model=ItemRead, status_code=status.HTTP_201_CREATED)\nasync def create_item(data: ItemCreate, session: AsyncSession = Depends(get_session)):\n    item = Item(**data.model_dump())\n    session.add(item)\n    await session.commit()\n    await session.refresh(item)\n    return item\n\n@router.get('/{item_id}', response_model=ItemRead)\nasync def read_item(item_id: str, session: AsyncSession = Depends(get_session)):\n    item = await session.get(Item, item_id)\n    if not item:\n        raise HTTPException(status_code=404, detail='Item not found')\n    return item\n\n@router.put('/{item_id}', response_model=ItemRead)\nasync def update_item(item_id: str, data: ItemUpdate, session: AsyncSession = Depends(get_session)):\n    item = await session.get(Item, item_id)\n    if not item:\n        raise HTTPException(status_code=404, detail='Item not found')\n    for key, val in data.model_dump(exclude_unset=True).items():\n        setattr(item, key, val)\n    await session.commit()\n    await session.refresh(item)\n    return item\n\n@router.delete('/{item_id}', status_code=status.HTTP_204_NO_CONTENT)\nasync def delete_item(item_id: str, session: AsyncSession = Depends(get_session)):\n    item = await session.get(Item, item_id)\n    if not item:\n        raise HTTPException(status_code=404, detail='Item not found')\n    await session.delete(item)\n    await session.commit()",
+  "dependencies": [
+    "fastapi",
+    "sqlalchemy[asyncio]"
+  ],
+  "best_practices": [
+    "Use Pydantic schemas for request/response validation",
+    "Return 404 for missing resources",
+    "Use 201 for creation, 204 for deletion"
+  ],
+  "related_patterns": [
+    "Pagination",
+    "Error handling"
+  ]
+}

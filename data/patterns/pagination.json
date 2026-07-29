@@ -1,0 +1,18 @@
+{
+  "name": "Pagination",
+  "description": "Offset-based pagination for list endpoints",
+  "category": "api",
+  "template_code": "from typing import Generic, TypeVar\nfrom pydantic import BaseModel\nfrom sqlalchemy import select, func\n\nT = TypeVar('T')\n\nclass PaginatedResponse(BaseModel, Generic[T]):\n    items: list[T]\n    total: int\n    page: int\n    page_size: int\n    total_pages: int\n\nasync def paginate(session, query, page: int = 1, page_size: int = 20):\n    count_q = select(func.count()).select_from(query.subquery())\n    total = (await session.execute(count_q)).scalar() or 0\n    offset = (page - 1) * page_size\n    result = await session.execute(query.offset(offset).limit(page_size))\n    items = list(result.scalars().all())\n    return PaginatedResponse(\n        items=items,\n        total=total,\n        page=page,\n        page_size=page_size,\n        total_pages=-(-total // page_size),\n    )",
+  "dependencies": [
+    "pydantic",
+    "sqlalchemy"
+  ],
+  "best_practices": [
+    "Always return total count for pagination UI",
+    "Cap page_size to prevent abuse",
+    "Use cursor-based pagination for real-time data"
+  ],
+  "related_patterns": [
+    "CRUD APIs"
+  ]
+}

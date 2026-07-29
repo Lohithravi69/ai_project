@@ -1,0 +1,19 @@
+{
+  "name": "JWT Authentication",
+  "description": "JSON Web Token based authentication middleware for FastAPI",
+  "category": "authentication",
+  "template_code": "from datetime import datetime, timedelta, timezone\nfrom jose import JWTError, jwt\nfrom passlib.context import CryptContext\n\nSECRET_KEY = 'change-me'\nALGORITHM = 'HS256'\nACCESS_TOKEN_EXPIRE_MINUTES = 30\n\npwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')\n\ndef verify_password(plain: str, hashed: str) -> bool:\n    return pwd_context.verify(plain, hashed)\n\ndef get_password_hash(password: str) -> str:\n    return pwd_context.hash(password)\n\ndef create_access_token(data: dict) -> str:\n    to_encode = data.copy()\n    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)\n    to_encode.update({'exp': expire})\n    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)\n\ndef decode_access_token(token: str) -> dict | None:\n    try:\n        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])\n    except JWTError:\n        return None",
+  "dependencies": [
+    "python-jose[cryptography]",
+    "passlib[bcrypt]"
+  ],
+  "best_practices": [
+    "Rotate SECRET_KEY in production via environment variable",
+    "Use short token expiry (15-30 minutes)",
+    "Store hashed passwords, never plaintext"
+  ],
+  "related_patterns": [
+    "CRUD APIs",
+    "Error handling"
+  ]
+}
