@@ -226,3 +226,76 @@ export async function v4ListRollbackHistory(planId?: string, limit = 50) {
   params.set('limit', String(limit));
   return request<Array<Record<string, any>>>(`/api/v4/rollback/history?${params}`);
 }
+
+// ── Phase 5 (v6) Autonomous API ────────────────────────────────────────────
+
+export async function v6CreateTask(payload: {
+  objective: string;
+  repository_id?: string;
+  mode?: string;
+  max_repair_attempts?: number;
+}) {
+  return request<Record<string, any>>('/api/v6/tasks', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function v6ListTasks(status?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  params.set('limit', String(limit));
+  return request<Record<string, any>>(`/api/v6/tasks?${params.toString()}`);
+}
+
+export async function v6GetTask(taskId: string) {
+  return request<Record<string, any>>(`/api/v6/tasks/${taskId}`);
+}
+
+export async function v6ExecuteTask(taskId: string) {
+  return request<Record<string, any>>(`/api/v6/tasks/${taskId}/execute`, { method: 'POST' });
+}
+
+export async function v6TaskAction(taskId: string, action: 'pause' | 'resume' | 'cancel') {
+  return request<Record<string, any>>(`/api/v6/tasks/${taskId}/action`, {
+    method: 'POST',
+    body: JSON.stringify({ action }),
+  });
+}
+
+export async function v6GenerateReport(taskId: string) {
+  return request<Record<string, any>>(`/api/v6/tasks/${taskId}/report`, { method: 'POST' });
+}
+
+export async function v6ListReports(limit = 20) {
+  return request<Array<Record<string, any>>>(`/api/v6/reports?limit=${limit}`);
+}
+
+export async function v6AnalyzeFailures(errors: string[]) {
+  return request<Array<Record<string, any>>>('/api/v6/analyze/failures', {
+    method: 'POST', body: JSON.stringify(errors),
+  });
+}
+
+export async function v6AnalyzeArchitecture(files: Record<string, string>) {
+  return request<Array<Record<string, any>>>('/api/v6/analyze/architecture', {
+    method: 'POST', body: JSON.stringify(files),
+  });
+}
+
+export async function v6ScoreAgent(agentName: string, toolResponses: unknown[], errors: string[]) {
+  return request<Record<string, any>>('/api/v6/agents/score', {
+    method: 'POST',
+    body: JSON.stringify({ agent_name: agentName, tool_responses: toolResponses, errors }),
+  });
+}
+
+export async function v6ListPatterns(category?: string) {
+  const params = category ? `?category=${category}` : '';
+  return request<Array<Record<string, any>>>(`/api/v6/patterns${params}`);
+}
+
+export async function v6SearchPatterns(q: string) {
+  return request<Array<Record<string, any>>>(`/api/v6/patterns/search?q=${encodeURIComponent(q)}`);
+}
+
+export async function v6SearchExperiences(q: string) {
+  return request<Array<Record<string, any>>>(`/api/v6/experiences/search?q=${encodeURIComponent(q)}`);
+}

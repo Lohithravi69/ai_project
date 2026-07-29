@@ -405,7 +405,7 @@ class RollbackHistoryRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
-class ExecutionLogRecord(Base):
+class ExecutionLogRecord(Base, TimestampMixin):
     __tablename__ = "execution_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
@@ -415,4 +415,144 @@ class ExecutionLogRecord(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+# ── Phase 5 ORM models ──────────────────────────────────────────────────────
+
+
+class AutonomousTaskRecord(Base, TimestampMixin):
+    __tablename__ = "autonomous_tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    mode: Mapped[str] = mapped_column(String(32), default="full", nullable=False)
+    repository_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    plan_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    result_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    error_message: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    repair_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_repair_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    progress_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    celery_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    progress_entries: Mapped[list[TaskProgressRecord]] = relationship(back_populates="task", cascade="all, delete-orphan")
+    repairs: Mapped[list[RepairAttemptRecord]] = relationship(back_populates="task", cascade="all, delete-orphan")
+    analyses: Mapped[list[FailureAnalysisRecord]] = relationship(back_populates="task", cascade="all, delete-orphan")
+    reports: Mapped[list[ExecutionReportRecord]] = relationship(back_populates="task", cascade="all, delete-orphan")
+
+
+class TaskProgressRecord(Base, TimestampMixin):
+    __tablename__ = "task_progress"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("autonomous_tasks.id"), nullable=False)
+    agent_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    stage: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="running", nullable=False)
+    message: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    score: Mapped[float | None] = mapped_column(Integer, nullable=True)
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    task: Mapped[AutonomousTaskRecord] = relationship(back_populates="progress_entries")
+
+
+class FailureAnalysisRecord(Base, TimestampMixin):
+    __tablename__ = "failure_analyses"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("autonomous_tasks.id"), nullable=False)
+    category: Mapped[str] = mapped_column(String(64), default="unknown", nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    recovery_strategy: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    recovery_command_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    task: Mapped[AutonomousTaskRecord] = relationship(back_populates="analyses")
+
+
+class RepairAttemptRecord(Base, TimestampMixin):
+    __tablename__ = "repair_attempts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("autonomous_tasks.id"), nullable=False)
+    attempt_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    agent_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    changes_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    score_before: Mapped[float | None] = mapped_column(Integer, nullable=True)
+    score_after: Mapped[float | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    task: Mapped[AutonomousTaskRecord] = relationship(back_populates="repairs")
+
+
+class EngineeringExperienceRecord(Base, TimestampMixin):
+    __tablename__ = "engineering_experiences"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String(64), default="general", nullable=False)
+    keywords_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    solution_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    success_rate: Mapped[float] = mapped_column(Integer, default=0.0, nullable=False)
+    use_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    tags_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class EngineeringPatternRecord(Base, TimestampMixin):
+    __tablename__ = "engineering_patterns"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String(64), default="architecture", nullable=False)
+    applicability_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    implementation_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    consequences_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    related_patterns_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    tags_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+
+
+class ExecutionReportRecord(Base, TimestampMixin):
+    __tablename__ = "execution_reports"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    task_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("autonomous_tasks.id"), nullable=True)
+    plan_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    report_type: Mapped[str] = mapped_column(String(64), default="engineering", nullable=False)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    sections_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    recommendations_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    task: Mapped[AutonomousTaskRecord] = relationship(back_populates="reports")
+
+
+class ArchitectureRecommendationRecord(Base, TimestampMixin):
+    __tablename__ = "architecture_recommendations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    task_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("autonomous_tasks.id"), nullable=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(String(64), default="design", nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    affected_files_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    tradeoffs_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    confidence: Mapped[float] = mapped_column(Integer, default=0.0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="proposed", nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

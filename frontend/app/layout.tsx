@@ -29,6 +29,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/agent-timeline">Agent Timeline</Link>
               <Link href="/token-context">Token Context</Link>
               <Link href="/system-health">System Health</Link>
+              <Link href="/execution-planner">Execution Planner</Link>
+              <Link href="/approval-center">Approval Center</Link>
+              <Link href="/autonomous">Autonomous</Link>
+              <Link href="/failure-analysis">Failure Analysis</Link>
+              <Link href="/architecture-advisor">Architecture Advisor</Link>
+              <Link href="/pattern-library">Pattern Library</Link>
+              <Link href="/engineering-reports">Reports</Link>
             </nav>
           </header>
           <main className="container mx-auto p-6">{children}</main>

@@ -435,5 +435,78 @@ class ExecutionLogRead(BaseModel):
     execution_id: str | None = None
 
 
+# ── v6 Autonomous schemas ──────────────────────────────────────────────────
+
+
+class AutonomousTaskCreate(BaseModel):
+    objective: str = Field(min_length=1)
+    repository_id: str = ""
+    mode: str = "full"
+    max_repair_attempts: int = Field(default=3, ge=0, le=10)
+
+
+class AutonomousTaskRead(BaseModel):
+    id: str
+    objective: str
+    status: str = "pending"
+    mode: str = "full"
+    repository_id: str = ""
+    plan_id: str = ""
+    result_summary: str = ""
+    error_message: str = ""
+    repair_attempts: int = 0
+    max_repair_attempts: int = 3
+    progress: list[dict[str, Any]] = Field(default_factory=list)
+    analyses: list[dict[str, Any]] = Field(default_factory=list)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    celery_task_id: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class AutonomousTaskList(BaseModel):
+    tasks: list[AutonomousTaskRead] = Field(default_factory=list)
+    total: int = 0
+
+
+class AutonomousTaskAction(BaseModel):
+    action: str = Field(pattern="^(pause|resume|cancel)$")
+
+
+class FailureAnalysisSchema(BaseModel):
+    category: str = "unknown"
+    severity: str = "medium"
+    summary: str = ""
+    details: dict[str, Any] = Field(default_factory=dict)
+    recovery_strategies: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ArchitectureRecommendationSchema(BaseModel):
+    title: str = ""
+    category: str = "design"
+    description: str = ""
+    rationale: str = ""
+    affected_files: list[str] = Field(default_factory=list)
+    tradeoffs: dict[str, Any] = Field(default_factory=dict)
+    confidence: float = 0.0
+    status: str = "proposed"
+
+
+class EngineeringReportSchema(BaseModel):
+    title: str = ""
+    report_type: str = "engineering"
+    summary: str = ""
+    sections: list[dict[str, Any]] = Field(default_factory=list)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    recommendations: list[str] = Field(default_factory=list)
+    generated_at: float = 0.0
+
+
+class AgentScoringRequest(BaseModel):
+    agent_name: str
+    tool_responses: list[dict[str, Any]] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
 GitHubSyncResponse.model_rebuild()
 RepositoryFilesResponse.model_rebuild()

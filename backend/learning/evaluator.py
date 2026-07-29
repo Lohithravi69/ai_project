@@ -6,6 +6,46 @@ from typing import Any
 from backend.models.schemas import ToolRunRequest, ToolRunResponse
 
 
+class AgentScore:
+    def __init__(
+        self,
+        agent_name: str = "",
+        correctness: float = 1.0,
+        completeness: float = 1.0,
+        code_quality: float = 1.0,
+        architecture: float = 1.0,
+        performance: float = 1.0,
+        security: float = 1.0,
+        testing: float = 1.0,
+        overall: float = 1.0,
+        details: list[str] | None = None,
+    ) -> None:
+        self.agent_name = agent_name
+        self.correctness = correctness
+        self.completeness = completeness
+        self.code_quality = code_quality
+        self.architecture = architecture
+        self.performance = performance
+        self.security = security
+        self.testing = testing
+        self.overall = overall
+        self.details = details or []
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "agent_name": self.agent_name,
+            "correctness": self.correctness,
+            "completeness": self.completeness,
+            "code_quality": self.code_quality,
+            "architecture": self.architecture,
+            "performance": self.performance,
+            "security": self.security,
+            "testing": self.testing,
+            "overall": self.overall,
+            "details": self.details,
+        }
+
+
 class EvaluationResult:
     def __init__(
         self,
@@ -16,6 +56,7 @@ class EvaluationResult:
         refactor_suggestions: list[str] | None = None,
         summary: str = "",
         score: float = 1.0,
+        agent_scores: list[AgentScore] | None = None,
     ) -> None:
         self.requirements_satisfied = requirements_satisfied
         self.regressions_detected = regressions_detected or []
@@ -24,6 +65,7 @@ class EvaluationResult:
         self.refactor_suggestions = refactor_suggestions or []
         self.summary = summary
         self.score = score
+        self.agent_scores = agent_scores or []
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -34,6 +76,7 @@ class EvaluationResult:
             "refactor_suggestions": self.refactor_suggestions,
             "summary": self.summary,
             "score": self.score,
+            "agent_scores": [s.to_dict() for s in self.agent_scores],
         }
 
     @property
@@ -112,6 +155,54 @@ class SelfEvaluator:
             refactor_suggestions=refactor_suggestions,
             summary="; ".join(summary_parts),
             score=score,
+        )
+
+    def evaluate_agent(
+        self,
+        agent_name: str,
+        success: bool,
+        error_count: int = 0,
+        tool_call_count: int = 0,
+        duration_ms: int = 0,
+        complexity: float = 0.5,
+    ) -> AgentScore:
+        base = 1.0
+        details: list[str] = []
+
+        if not success:
+            base -= 0.4
+            details.append("Agent failed execution")
+        if error_count > 0:
+            base -= 0.15 * min(error_count, 5)
+            details.append(f"{error_count} error(s) encountered")
+        if tool_call_count == 0 and success:
+            base -= 0.1
+            details.append("No tool calls made")
+
+        correctness = max(0.0, base - 0.1 * (error_count > 0))
+        completeness = max(0.0, base - 0.1 * (0 if success else 1))
+        code_quality = max(0.0, base - 0.05 * complexity)
+        architecture = max(0.0, base - 0.1 * complexity)
+        performance = max(0.0, 1.0 - min(duration_ms / 60000, 0.5))
+        security = max(0.0, base - 0.3 * (1 if agent_name == "reviewer" and error_count > 0 else 0))
+        testing = max(0.0, base + 0.1 * (0 if agent_name == "tester" and not success else 0))
+
+        overall = (
+            correctness * 0.25 + completeness * 0.2 + code_quality * 0.15
+            + architecture * 0.1 + performance * 0.1 + security * 0.1 + testing * 0.1
+        )
+
+        return AgentScore(
+            agent_name=agent_name,
+            correctness=round(correctness, 2),
+            completeness=round(completeness, 2),
+            code_quality=round(code_quality, 2),
+            architecture=round(architecture, 2),
+            performance=round(performance, 2),
+            security=round(security, 2),
+            testing=round(testing, 2),
+            overall=round(overall, 2),
+            details=details,
         )
 
     async def _llm_evaluate(
