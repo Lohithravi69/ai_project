@@ -6,13 +6,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agents.base import AgentContext, BaseAgent
 from backend.agents.types import AGENT_ORDER, AgentType
+from backend.config import get_settings
 from backend.database.models import ExecutionPlanRecord
+from backend.embeddings.ollama_client import OllamaClient
 from backend.models.schemas import AgentRunRequest, AgentRunResponse, AgentStatusResponse, AgentTraceEntry, AIReasoning
 
 
 class AgentOrchestrator:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        settings = get_settings()
+        self._ollama = OllamaClient(
+            base_url=settings.ollama_base_url,
+            chat_model=settings.ollama_chat_model,
+            embed_model=settings.ollama_embed_model,
+        )
 
     async def run_full_pipeline(self, request: AgentRunRequest) -> AgentRunResponse:
         context = AgentContext()
@@ -93,35 +101,35 @@ class AgentOrchestrator:
             if agent_type == AgentType.PLANNER:
                 from backend.agents.planner import PlannerAgent
 
-                return PlannerAgent(self.session, context)
+                return PlannerAgent(self.session, context, self._ollama)
             elif agent_type == AgentType.ARCHITECT:
                 from backend.agents.architect import ArchitectAgent
 
-                return ArchitectAgent(self.session, context)
+                return ArchitectAgent(self.session, context, self._ollama)
             elif agent_type == AgentType.DECOMPOSER:
                 from backend.agents.decomposer import TaskDecomposerAgent
 
-                return TaskDecomposerAgent(self.session, context)
+                return TaskDecomposerAgent(self.session, context, self._ollama)
             elif agent_type == AgentType.CODER:
                 from backend.agents.coder import CodingAgent
 
-                return CodingAgent(self.session, context)
+                return CodingAgent(self.session, context, self._ollama)
             elif agent_type == AgentType.REVIEWER:
                 from backend.agents.reviewer import ReviewerAgent
 
-                return ReviewerAgent(self.session, context)
+                return ReviewerAgent(self.session, context, self._ollama)
             elif agent_type == AgentType.TESTER:
                 from backend.agents.tester import TestingAgent
 
-                return TestingAgent(self.session, context)
+                return TestingAgent(self.session, context, self._ollama)
             elif agent_type == AgentType.DEBUGGER:
                 from backend.agents.debugger import DebugAgent
 
-                return DebugAgent(self.session, context)
+                return DebugAgent(self.session, context, self._ollama)
             elif agent_type == AgentType.DOCUMENTER:
                 from backend.agents.documenter import DocumentationAgent
 
-                return DocumentationAgent(self.session, context)
+                return DocumentationAgent(self.session, context, self._ollama)
         except ImportError:
             return None
         return None

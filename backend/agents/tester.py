@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -67,12 +68,10 @@ class TestingAgent(BaseAgent):
         else:
             test_results = {"error": dry_resp.exception_message}
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Created test file at {test_path or 'default path'} and ran pytest. Tool calls: {tool_calls}.",
-            alternatives_considered=["Skip test file creation and only run existing tests", "Create comprehensive test suite"],
-            why_this_choice="Creates minimal test for changed files and runs existing test suite to verify no regressions.",
-            confidence=0.8,
-            risks=["Test file may not cover all edge cases", "Existing tests may fail due to unrelated issues"],
+        reasoning = await self._reason(
+            system_prompt="You are a Testing agent. Create and run tests for code changes. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nTest path: {test_path or 'default'}\nTool calls: {tool_calls}\nTest results: {json.dumps(test_results)}",
+            fallback=f"Created test file at {test_path or 'default path'} and ran pytest. Tool calls: {tool_calls}.",
         )
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)

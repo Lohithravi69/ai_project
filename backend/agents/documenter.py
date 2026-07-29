@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -51,12 +52,10 @@ class DocumentationAgent(BaseAgent):
             await self.use_tool(doc_request)
             tool_calls += 1
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Generated documentation covering {len(unique_files)} changed file(s) from {len(self.context.tool_responses)} tool response(s).",
-            alternatives_considered=["Skip documentation", "Create per-file documentation"],
-            why_this_choice="Produces a single changelog documenting all changes made during execution.",
-            confidence=0.85,
-            risks=["Documentation may not reflect intermediate changes if tool responses are incomplete"],
+        reasoning = await self._reason(
+            system_prompt="You are a Documentation agent. Update documentation for code changes. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nChanged files: {json.dumps(unique_files)}\nTool responses: {len(self.context.tool_responses)}",
+            fallback=f"Generated documentation covering {len(unique_files)} changed file(s) from {len(self.context.tool_responses)} tool response(s).",
         )
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)

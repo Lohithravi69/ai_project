@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -56,12 +57,10 @@ class ArchitectAgent(BaseAgent):
 
         self.context.architecture = design
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Produced technical architecture with {len(design['components'])} component(s) and {len(design['dependencies'])} dependency(ies).",
-            alternatives_considered=["Minimal single-component design", "Full multi-component decomposition"],
-            why_this_choice="Architecture reflects the required tools and modifying vs read-only nature of the plan.",
-            confidence=0.85,
-            risks=["Architecture may miss implicit dependencies not captured in tool list"],
+        reasoning = await self._reason(
+            system_prompt="You are an Architect agent. Produce technical designs from high-level plans. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nPlan: {json.dumps(plan, indent=2)}\nArchitecture design: {json.dumps(design, indent=2)}",
+            fallback=f"Produced technical architecture with {len(design['components'])} component(s) and {len(design['dependencies'])} dependency(ies).",
         )
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)

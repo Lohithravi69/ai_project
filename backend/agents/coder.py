@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -46,12 +47,10 @@ class CodingAgent(BaseAgent):
 
         self.context.errors = errors
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Executed {len(self.context.tasks)} tasks with {tool_calls} total tool calls ({'success' if not errors else 'with errors'}).",
-            alternatives_considered=["Execute all tasks without dry run", "Skip failed tasks silently"],
-            why_this_choice="Dry run first ensures safety; execution only proceeds when dry run succeeds.",
-            confidence=0.88 if not errors else 0.5,
-            risks=[f"Task execution error: {e}" for e in errors],
+        reasoning = await self._reason(
+            system_prompt="You are a Coding agent. Implement code changes using Phase 3 tools with dry-run-first safety. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nTasks: {json.dumps(self.context.tasks)}\nTool calls: {tool_calls}\nErrors: {errors}",
+            fallback=f"Executed {len(self.context.tasks)} tasks with {tool_calls} total tool calls ({'success' if not errors else 'with errors'}).",
         )
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)

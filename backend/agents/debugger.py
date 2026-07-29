@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -41,12 +42,10 @@ class DebugAgent(BaseAgent):
                 "suggested_fix": "",
             })
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Analyzed {len(test_responses)} test run(s) and produced {len(failure_analysis)} failure analysis entries.",
-            alternatives_considered=["Skip analysis if all tests pass", "Deep analysis of each failure"],
-            why_this_choice="Analyzes all test responses to identify root causes and suggested fixes.",
-            confidence=0.75,
-            risks=["Root cause analysis may be imprecise without full test output context"],
+        reasoning = await self._reason(
+            system_prompt="You are a Debug agent. Analyze test failures and suggest fixes. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nTest responses: {len(test_responses)}\nFailure analysis: {json.dumps(failure_analysis, indent=2)}",
+            fallback=f"Analyzed {len(test_responses)} test run(s) and produced {len(failure_analysis)} failure analysis entries.",
         )
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)

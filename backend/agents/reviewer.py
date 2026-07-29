@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -47,12 +48,10 @@ class ReviewerAgent(BaseAgent):
 
         self.context.review_feedback = feedback
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Reviewed {len(self.context.tool_responses)} tool responses and produced {len(feedback)} feedback entries.",
-            alternatives_considered=["Skip review for successful tools", "Only flag errors"],
-            why_this_choice="Reviews all responses for errors, affected files, and risks to ensure quality.",
-            confidence=0.85,
-            risks=["Review may miss semantic issues not captured by tool metadata"],
+        reasoning = await self._reason(
+            system_prompt="You are a Reviewer agent. Review code changes for quality, security, and correctness. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nTool responses: {len(self.context.tool_responses)}\nFeedback: {json.dumps(feedback, indent=2)}",
+            fallback=f"Reviewed {len(self.context.tool_responses)} tool responses and produced {len(feedback)} feedback entries.",
         )
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)

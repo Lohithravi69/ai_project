@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 from uuid import uuid4
@@ -47,56 +48,60 @@ class PlannerAgent(BaseAgent):
             {"order": 6, "title": "Approval", "description": "Modifying actions require explicit human approval.", "tools": ["RollbackCommit"], "dry_run": True},
         ]
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Analyzed user request and created execution plan. Request is {'modifying' if modifying else 'read-only'}. Risk level: {risk}.",
-            alternatives_considered=["Read-only plan", "Full modification plan"],
-            why_this_choice="Selected tools and risk level based on keyword analysis of user request.",
-            confidence=0.9,
-            risks=["Incorrect tool selection if request intent is ambiguous"] if modifying else [],
+        reasoning = await self._reason(
+            system_prompt="You are a Planner agent. Analyze user requests and produce structured execution plans. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nModifying: {modifying}\nRisk level: {risk}\nRequired tools: {required_tools}",
+            fallback=f"Analyzed user request and created execution plan. Request is {'modifying' if modifying else 'read-only'}. Risk level: {risk}.",
         )
 
-        plan_id = str(uuid4())
-        plan_record = ExecutionPlanRecord(
-            id=plan_id,
-            objective=self.context.user_request[:255],
-            reasoning=self.context.user_request,
-            repository_ids_json=[self.context.repository_id] if self.context.repository_id else [],
-            affected_files_json=[],
-            required_tools_json=required_tools,
-            execution_order_json=execution_order,
-            risk_score=risk,
-            estimated_duration_ms=sum({
-                "ReadFile": 500, "WriteFile": 1000, "CreateFile": 500, "DeleteFile": 500, "MoveFile": 500,
-                "SearchRepository": 2000, "ListFiles": 500, "GitStatus": 500, "GitDiff": 1000,
-                "CreateBranch": 1000, "CheckoutBranch": 1000, "CommitChanges": 2000, "RollbackCommit": 5000,
-                "RunPyTest": 60000, "RunPlaywright": 60000, "RunShellRestricted": 10000, "FormatCode": 5000,
-                "QueryVectorStore": 2000, "QueryPostgres": 2000, "ReadLogs": 1000, "RestartContainer": 10000,
-            }.get(t, 1000) for t in required_tools),
-            rollback_strategy="Capture a checkpoint, restore the saved git SHA and branch, then resync metadata, graph, and vector index.",
-            approval_required=modifying,
-            approval_status="pending" if modifying else "approved",
-            execution_id=self.context.execution_id,
-            pipeline_stage="plan",
-            ai_reasoning_json=reasoning.model_dump(),
-            plan_json={
-                "objective": self.context.user_request[:255],
-                "request_text": self.context.user_request,
-                "reasoning": self.context.user_request,
-                "repository_ids": [self.context.repository_id] if self.context.repository_id else [],
-                "affected_files": [],
-                "required_tools": required_tools,
-                "execution_order": execution_order,
-                "risk_score": risk,
-                "approval_required": modifying,
-            },
-            agent_status="pending",
-        )
-        self.session.add(plan_record)
+        plan_record: ExecutionPlanRecord
+        if self.context.plan_id:
+            plan_record = await self.session.get(ExecutionPlanRecord, self.context.plan_id)
+        else:
+            plan_record = ExecutionPlanRecord(
+                id=str(uuid4()),
+                execution_id=self.context.execution_id,
+            )
+            self.session.add(plan_record)
+
+        plan_record.objective = self.context.user_request[:255]
+        plan_record.reasoning = self.context.user_request
+        plan_record.repository_ids_json = [self.context.repository_id] if self.context.repository_id else []
+        plan_record.affected_files_json = []
+        plan_record.required_tools_json = required_tools
+        plan_record.execution_order_json = execution_order
+        plan_record.risk_score = risk
+        plan_record.estimated_duration_ms = sum({
+            "ReadFile": 500, "WriteFile": 1000, "CreateFile": 500, "DeleteFile": 500, "MoveFile": 500,
+            "SearchRepository": 2000, "ListFiles": 500, "GitStatus": 500, "GitDiff": 1000,
+            "CreateBranch": 1000, "CheckoutBranch": 1000, "CommitChanges": 2000, "RollbackCommit": 5000,
+            "RunPyTest": 60000, "RunPlaywright": 60000, "RunShellRestricted": 10000, "FormatCode": 5000,
+            "QueryVectorStore": 2000, "QueryPostgres": 2000, "ReadLogs": 1000, "RestartContainer": 10000,
+        }.get(t, 1000) for t in required_tools)
+        plan_record.rollback_strategy = "Capture a checkpoint, restore the saved git SHA and branch, then resync metadata, graph, and vector index."
+        plan_record.approval_required = modifying
+        plan_record.approval_status = "pending" if modifying else "approved"
+        plan_record.execution_id = self.context.execution_id
+        plan_record.pipeline_stage = "plan"
+        plan_record.ai_reasoning_json = reasoning.model_dump()
+        plan_record.plan_json = {
+            "objective": self.context.user_request[:255],
+            "request_text": self.context.user_request,
+            "reasoning": self.context.user_request,
+            "repository_ids": [self.context.repository_id] if self.context.repository_id else [],
+            "affected_files": [],
+            "required_tools": required_tools,
+            "execution_order": execution_order,
+            "risk_score": risk,
+            "approval_required": modifying,
+        }
+        plan_record.agent_status = "pending"
         await self.session.commit()
+        await self.session.refresh(plan_record)
 
-        self.context.plan_id = plan_id
+        self.context.plan_id = plan_record.id
         self.context.plan = {
-            "plan_id": plan_id,
+            "plan_id": plan_record.id,
             "objective": self.context.user_request[:255],
             "modifying": modifying,
             "risk": risk,

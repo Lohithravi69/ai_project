@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -45,17 +47,46 @@ class BaseAgent(ABC):
     name: str = ""
     description: str = ""
 
-    def __init__(self, session: AsyncSession, context: AgentContext) -> None:
+    def __init__(self, session: AsyncSession, context: AgentContext, ollama_client: Any = None) -> None:
         self.session = session
         self.context = context
         self.registry = ToolRegistry()
         self.execution_manager = ExecutionManager(session)
         self.metrics = MetricsCollector()
+        self._ollama = ollama_client
         self._started_at: float = 0.0
 
     @abstractmethod
     async def run(self) -> AgentContext:
         ...
+
+    async def _reason(
+        self,
+        system_prompt: str,
+        context_prompt: str,
+        fallback: str = "",
+    ) -> AIReasoning:
+        if self._ollama is None:
+            return self.record_reasoning(reasoning=fallback)
+        try:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context_prompt},
+            ]
+            content = await asyncio.wait_for(
+                self._ollama.chat(messages),
+                timeout=8.0,
+            )
+            data = json.loads(content)
+            return AIReasoning(
+                reasoning=data.get("reasoning", fallback),
+                alternatives_considered=data.get("alternatives_considered", []),
+                why_this_choice=data.get("why_this_choice", ""),
+                confidence=float(data.get("confidence", 0.0)),
+                expected_risks=data.get("expected_risks", []),
+            )
+        except Exception:
+            return self.record_reasoning(reasoning=fallback)
 
     async def use_tool(self, request: ToolRunRequest) -> ToolRunResponse:
         request.execution_id = self.context.execution_id

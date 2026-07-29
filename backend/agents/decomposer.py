@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -49,12 +50,10 @@ class TaskDecomposerAgent(BaseAgent):
 
         self.context.tasks = tasks
 
-        reasoning = self.record_reasoning(
-            reasoning=f"Decomposed architecture into {len(tasks)} ordered tool execution tasks.",
-            alternatives_considered=["Sequential single-task execution", "Parallel task execution"],
-            why_this_choice="Sequential decomposition ensures each tool has clear inputs and respects execution order.",
-            confidence=0.9,
-            risks=["Task ordering may need adjustment based on runtime dependencies between tools"],
+        reasoning = await self._reason(
+            system_prompt="You are a Task Decomposer agent. Break architectural designs into ordered tool execution tasks. Return JSON with: reasoning (str), alternatives_considered (list), why_this_choice (str), confidence (float 0-1), expected_risks (list).",
+            context_prompt=f"User request: {self.context.user_request}\nArchitecture: {json.dumps(architecture, indent=2)}\nTasks: {json.dumps(tasks, indent=2)}",
+            fallback=f"Decomposed architecture into {len(tasks)} ordered tool execution tasks.",
         )
 
         duration_ms = int((time.perf_counter() - started_at) * 1000)
