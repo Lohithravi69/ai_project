@@ -286,6 +286,41 @@ class ExecutionPlanCreate(BaseModel):
     execution_id: str = ""
 
 
+class AgentTraceEntry(BaseModel):
+    agent_name: str = ""
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    input_summary: str = ""
+    output_summary: str = ""
+    tool_calls: int = 0
+    ai_reasoning: AIReasoning = Field(default_factory=AIReasoning)
+    duration_ms: int = 0
+    success: bool = True
+    error: str = ""
+
+
+class AgentRunRequest(BaseModel):
+    request_text: str = Field(min_length=1)
+    repository_id: str = ""
+    mode: str = "full"
+
+
+class AgentRunResponse(BaseModel):
+    execution_id: str
+    plan_id: str = ""
+    status: str = "pending"
+    agent_trace: list[AgentTraceEntry] = Field(default_factory=list)
+    result_summary: str = ""
+
+
+class AgentStatusResponse(BaseModel):
+    execution_id: str
+    plan_id: str | None = None
+    agent_status: str = "pending"
+    current_agent: str = ""
+    progress: str = ""
+
+
 class ExecutionPlanRead(BaseModel):
     id: str
     objective: str
@@ -301,6 +336,9 @@ class ExecutionPlanRead(BaseModel):
     approval_status: str = "pending"
     plan: dict[str, Any] = Field(default_factory=dict)
     ai_reasoning: AIReasoning = Field(default_factory=AIReasoning)
+    agent_trace: list[AgentTraceEntry] = Field(default_factory=list)
+    architecture: dict[str, Any] = Field(default_factory=dict)
+    agent_status: str = "pending"
     created_at: datetime | None = None
     updated_at: datetime | None = None
     execution_id: str | None = None

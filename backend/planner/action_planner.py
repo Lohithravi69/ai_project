@@ -92,7 +92,7 @@ class ActionPlanner:
         self.session.add(record)
         await self.session.commit()
 
-        from backend.models.schemas import AIReasoning
+        from backend.models.schemas import AIReasoning, AgentTraceEntry
 
         return ExecutionPlanRead(
             id=plan_id,
@@ -109,6 +109,9 @@ class ActionPlanner:
             approval_status="pending" if modifying else "approved",
             plan=record.plan_json,
             ai_reasoning=AIReasoning(**request.ai_reasoning.model_dump()),
+            agent_trace=[AgentTraceEntry(**t) for t in record.agent_trace_json or []],
+            architecture=record.architecture_json or {},
+            agent_status=record.agent_status or "pending",
             created_at=record.created_at,
             updated_at=record.updated_at,
             execution_id=execution_id,
@@ -128,7 +131,7 @@ class ActionPlanner:
         return [self._record_to_read(r) for r in result.scalars().all()]
 
     def _record_to_read(self, record: ExecutionPlanRecord) -> ExecutionPlanRead:
-        from backend.models.schemas import AIReasoning
+        from backend.models.schemas import AIReasoning, AgentTraceEntry
 
         return ExecutionPlanRead(
             id=record.id,
@@ -145,6 +148,9 @@ class ActionPlanner:
             approval_status=record.approval_status,
             plan=record.plan_json,
             ai_reasoning=AIReasoning(**(record.ai_reasoning_json or {})),
+            agent_trace=[AgentTraceEntry(**t) for t in record.agent_trace_json or []],
+            architecture=record.architecture_json or {},
+            agent_status=record.agent_status or "pending",
             created_at=record.created_at,
             updated_at=record.updated_at,
             execution_id=record.execution_id,
