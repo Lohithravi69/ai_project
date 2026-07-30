@@ -14,3 +14,6 @@ logs/*
 vector_store/chroma/
 backend/.venv/
 frontend/.venv/
+*.egg-info/
+extensions/aidex/node_modules/
+extensions/aidex/out/
