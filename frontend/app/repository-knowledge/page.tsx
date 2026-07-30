@@ -12,7 +12,7 @@ export default function RepositoryKnowledgePage() {
     setLoading(true);
     setReport(null);
     try {
-      const res = await analyzeRepository(repositoryId || undefined);
+      const res = await analyzeRepository(repositoryId);
       setReport(res);
     } catch (err: any) {
       setReport({ nodes: 0, edges: 0 });

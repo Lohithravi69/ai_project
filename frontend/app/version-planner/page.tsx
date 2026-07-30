@@ -25,7 +25,7 @@ export default function VersionPlannerPage() {
       if (secIssues > 0) payload.sec_findings = Array.from({ length: secIssues }, () => ({ severity: "high" }));
       if (perfIssues > 0) payload.perf_findings = Array.from({ length: perfIssues }, () => ({ severity: "medium" }));
       if (breakingDeps > 0) payload.dep_recs = Array.from({ length: breakingDeps }, () => ({ breaking: true, category: "outdated" }));
-      setResult(await v7PlanVersion(payload));
+      setResult(await v7PlanVersion(payload as any));
     } catch {} finally { setLoading(false); }
   }
 

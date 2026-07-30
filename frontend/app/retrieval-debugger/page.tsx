@@ -70,7 +70,7 @@ export default function RetrievalDebuggerPage() {
                   <div className="flex flex-wrap gap-3 text-xs text-gray-600">
                     <span>Chunk: {String(chunk.id ?? "-")}</span>
                     <span>Score: {String(chunk.score ?? 0)}</span>
-                    <span>Repository: {String(chunk.metadata?.repository_id ?? repositoryId || "-")}</span>
+                    <span>Repository: {String(chunk.metadata?.repository_id ?? repositoryId ?? "-")}</span>
                     <span>File: {String(chunk.metadata?.path ?? chunk.metadata?.file_path ?? "-")}</span>
                   </div>
                   <pre className="mt-2 whitespace-pre-wrap text-xs text-gray-800">{String(chunk.content ?? "")}</pre>

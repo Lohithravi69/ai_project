@@ -27,7 +27,7 @@ def _print_error(msg: str) -> None:
 
 def _require_backend() -> bool:
     try:
-        client._get("/api/v2/repositories")
+        client._get("/api/repositories")
         return True
     except Exception as e:
         _print_error(f"Cannot reach backend at {client.base_url}: {e}")

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     repositories_root: str = Field(default="./repositories", alias="REPOSITORIES_ROOT")
     max_file_size_bytes: int = Field(default=1_000_000, alias="MAX_FILE_SIZE_BYTES")
     github_token: str = Field(default="", alias="GITHUB_TOKEN")
+    github_account: str = Field(default="Lohithravi69", alias="GITHUB_ACCOUNT")
     tree_sitter_language_library: str = Field(default="", alias="TREE_SITTER_LANGUAGE_LIBRARY")
 
 

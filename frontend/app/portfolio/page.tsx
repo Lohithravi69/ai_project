@@ -116,7 +116,7 @@ export default function PortfolioDashboardPage() {
                 {repos.map((r: any) => (
                   <div key={r.id} className="flex justify-between text-sm">
                     <span>{r.full_name}</span>
-                    <Badge variant="outline">{r.language_summary?.primary_language || "?"}</Badge>
+                    <Badge>{r.language_summary?.primary_language || "?"}</Badge>
                   </div>
                 ))}
               </div>
@@ -137,7 +137,7 @@ export default function PortfolioDashboardPage() {
                 <div key={e.id} className="flex items-center justify-between text-sm border-b pb-1">
                   <span className="truncate max-w-md">{e.objective}</span>
                   <div className="flex gap-2 items-center shrink-0">
-                    <Badge variant={e.outcome === "success" ? "default" : "secondary"}>{e.outcome || "unknown"}</Badge>
+                    <Badge>{e.outcome || "unknown"}</Badge>
                     {e.duration_ms > 0 && <span className="text-xs text-muted-foreground">{e.duration_ms}ms</span>}
                   </div>
                 </div>

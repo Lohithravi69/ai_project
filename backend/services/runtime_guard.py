@@ -24,15 +24,22 @@ class RuntimeGuard:
         self.settings = settings
 
     async def check_database(self, engine: AsyncEngine) -> DependencyStatus:
+        url = str(engine.url)
+        name = "postgres"
+        if url.startswith("sqlite"):
+            name = "sqlite"
         try:
             async with engine.connect() as connection:
                 await connection.execute(text("SELECT 1"))
-            return DependencyStatus("postgres", "ok")
+            return DependencyStatus(name, "ok")
         except Exception as exc:  # pragma: no cover - defensive
-            return DependencyStatus("postgres", "degraded", str(exc))
+            return DependencyStatus(name, "degraded", str(exc))
 
     async def check_redis(self) -> DependencyStatus:
-        client = redis.from_url(self.settings.redis_url)
+        url = self.settings.redis_url
+        if not url:
+            return DependencyStatus("redis", "skipped", "not configured")
+        client = redis.from_url(url)
         try:
             await client.ping()
             return DependencyStatus("redis", "ok")
@@ -42,9 +49,12 @@ class RuntimeGuard:
             await client.aclose()
 
     async def check_ollama(self) -> DependencyStatus:
+        url = self.settings.ollama_base_url
+        if not url:
+            return DependencyStatus("ollama", "skipped", "not configured")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.settings.ollama_base_url.rstrip('/')}/api/tags")
+                response = await client.get(f"{url.rstrip('/')}/api/tags")
                 response.raise_for_status()
                 payload = response.json()
                 models = [model.get("name", "") for model in payload.get("models", [])]
@@ -54,9 +64,12 @@ class RuntimeGuard:
             return DependencyStatus("ollama", "degraded", str(exc))
 
     async def check_chroma(self) -> DependencyStatus:
+        url = self.settings.chroma_api_url
+        if not url:
+            return DependencyStatus("chroma", "skipped", "not configured")
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.settings.chroma_api_url.rstrip('/')}/api/v1/heartbeat")
+                response = await client.get(f"{url.rstrip('/')}/api/v1/heartbeat")
                 response.raise_for_status()
             return DependencyStatus("chroma", "ok")
         except Exception as exc:  # pragma: no cover - defensive
@@ -64,9 +77,14 @@ class RuntimeGuard:
 
     async def ensure_ollama_models(self, required_models: list[str]) -> list[DependencyStatus]:
         statuses: list[DependencyStatus] = []
+        url = self.settings.ollama_base_url
+        if not url:
+            for model_name in required_models:
+                statuses.append(DependencyStatus(model_name, "skipped", "ollama not configured"))
+            return statuses
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(f"{self.settings.ollama_base_url.rstrip('/')}/api/tags")
+                response = await client.get(f"{url.rstrip('/')}/api/tags")
                 response.raise_for_status()
                 payload = response.json()
                 existing = {model.get("name", "") for model in payload.get("models", [])}

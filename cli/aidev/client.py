@@ -59,7 +59,7 @@ class AIClient:
     # ── Repos ────────────────────────────────────────────────────────────────
 
     def list_repos(self) -> list[dict[str, Any]]:
-        data = self._get("/api/v2/repositories")
+        data = self._get("/api/repositories")
         if isinstance(data, list):
             return data
         if isinstance(data, dict):
