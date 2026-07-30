@@ -21,14 +21,31 @@ class PlannerAgent(BaseAgent):
 
         experience_store = ExperienceStore()
         pattern_store = PatternStore()
-        similar = experience_store.search_similar(self.context.user_request, limit=3)
+        similar = experience_store.search_similar(self.context.user_request, limit=5)
         matching_patterns = pattern_store.search_patterns(self.context.user_request)
 
         if similar:
-            self.context.plan["similar_experiences"] = [
-                {"objective": e.objective[:200], "outcome": e.outcome}
-                for e, _score in similar
-            ]
+            exp_list = []
+            for e, score in similar:
+                exp_list.append({
+                    "objective": e.objective[:200],
+                    "outcome": e.outcome,
+                    "duration_ms": e.duration_ms,
+                    "failures_count": len(e.failures),
+                    "score": round(score, 2),
+                })
+            self.context.plan["similar_experiences"] = exp_list
+            exp_outcomes = [e.outcome for e, _ in similar]
+            if any(o == "success" for o in exp_outcomes):
+                self.context.plan["experience_confidence"] = "high"
+            elif any(o == "" for o in exp_outcomes):
+                self.context.plan["experience_confidence"] = "medium"
+            else:
+                self.context.plan["experience_confidence"] = "low"
+            recent_failures = sum(1 for e, _ in similar if e.failures)
+            if recent_failures > 1:
+                self.context.plan["warnings"] = self.context.plan.get("warnings", [])
+                self.context.plan["warnings"].append(f"{recent_failures} similar experiences had failures, consider extra caution")
         if matching_patterns:
             self.context.plan["applicable_patterns"] = [
                 {"name": p.name, "category": p.category}

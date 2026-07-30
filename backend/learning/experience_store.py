@@ -106,6 +106,32 @@ class ExperienceStore:
         }
         self._save_index()
 
+    def auto_record(
+        self,
+        objective: str,
+        outcome: str = "success",
+        plan_summary: str = "",
+        tools_used: list[str] | None = None,
+        failures: list[str] | None = None,
+        fixes: list[str] | None = None,
+        duration_ms: int = 0,
+        execution_id: str = "",
+        repository_id: str = "",
+    ) -> ExperienceEntry:
+        entry = ExperienceEntry(
+            objective=objective,
+            plan_summary=plan_summary,
+            tools_used=tools_used,
+            failures=failures,
+            fixes=fixes,
+            duration_ms=duration_ms,
+            outcome=outcome,
+            execution_id=execution_id,
+            repository_id=repository_id,
+        )
+        self.store(entry)
+        return entry
+
     def get(self, entry_id: str) -> ExperienceEntry | None:
         if entry_id not in self._index:
             return None
@@ -117,6 +143,22 @@ class ExperienceStore:
                 return ExperienceEntry.from_dict(json.load(f))
         except (json.JSONDecodeError, OSError):
             return None
+
+    def search(self, q: str, limit: int = 5) -> list[tuple[ExperienceEntry, float]]:
+        return self.search_similar(q, limit)
+
+    def list_all(self, limit: int = 50, offset: int = 0) -> list[ExperienceEntry]:
+        sorted_ids = sorted(
+            self._index.keys(),
+            key=lambda eid: self._index[eid].get("created_at", ""),
+            reverse=True,
+        )
+        entries: list[ExperienceEntry] = []
+        for eid in sorted_ids[offset:offset + limit]:
+            entry = self.get(eid)
+            if entry:
+                entries.append(entry)
+        return entries
 
     def search_similar(self, query: str, limit: int = 5) -> list[tuple[ExperienceEntry, float]]:
         query_lower = query.lower()

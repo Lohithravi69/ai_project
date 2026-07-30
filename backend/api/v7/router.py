@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.models import RecommendationRecord, DebtItemRecord, VersionPlanRecord, AnalyticsTrendRecord
+from backend.database.models import RecommendationRecord, DebtItemRecord, VersionPlanRecord, AnalyticsTrendRecord, RepositoryRecord
 from backend.database.session import get_session
 from backend.evolution import (
     TechnicalDebtAnalyzer,
@@ -217,3 +217,42 @@ async def recommendation_action(rec_id: str, payload: RecommendationAction):
     if not ok:
         raise HTTPException(status_code=404, detail="Recommendation not found")
     return {"status": "ok", "rec_id": rec_id, "action": payload.action}
+
+
+# ── Daily Engineering Brief ──────────────────────────────────────────────────
+
+
+@router.get("/brief")
+async def daily_brief(session: AsyncSession = Depends(get_session)):
+    from backend.learning.experience_store import ExperienceStore
+
+    trends = _at.get_summary()
+    rec_stats = _rc.get_stats()
+    exp_store = ExperienceStore()
+    recent_experiences = [e.to_dict() for e in exp_store.list_all(limit=5)]
+
+    repo_result = await session.execute(
+        select(RepositoryRecord).where(RepositoryRecord.is_active == True)
+    )
+    repos = list(repo_result.scalars().all())
+
+    brief = {
+        "health_score": trends.get("health_score", 0),
+        "improving": trends.get("improving", 0),
+        "declining": trends.get("declining", 0),
+        "stable": trends.get("stable", 0),
+        "metrics": trends.get("metrics", []),
+        "recommendations": {
+            "total": rec_stats.get("total", 0),
+            "open": rec_stats.get("open", 0),
+            "approved": rec_stats.get("approved", 0),
+            "dismissed": rec_stats.get("dismissed", 0),
+        },
+        "repositories": [
+            {"id": r.id, "full_name": r.full_name, "language": r.language_summary.get("primary_language", "")}
+            for r in repos
+        ],
+        "recent_experiences": recent_experiences,
+        "experience_count": exp_store.count(),
+    }
+    return brief

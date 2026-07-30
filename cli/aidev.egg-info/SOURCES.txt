@@ -1,0 +1,11 @@
+pyproject.toml
+aidev/__init__.py
+aidev/__main__.py
+aidev/cli.py
+aidev/client.py
+aidev.egg-info/PKG-INFO
+aidev.egg-info/SOURCES.txt
+aidev.egg-info/dependency_links.txt
+aidev.egg-info/entry_points.txt
+aidev.egg-info/requires.txt
+aidev.egg-info/top_level.txt

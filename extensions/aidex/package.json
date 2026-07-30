@@ -1,0 +1,39 @@
+{
+  "name": "aidex",
+  "displayName": "AI Dev OS",
+  "description": "AI Development Operating System — daily engineering, planning, execution, and evolution inside VS Code.",
+  "version": "1.0.0",
+  "publisher": "aidev",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "aidex.brief", "title": "aidev: Daily Brief" },
+      { "command": "aidex.status", "title": "aidev: Status" },
+      { "command": "aidex.plan", "title": "aidev: Plan" },
+      { "command": "aidex.task", "title": "aidev: New Task" },
+      { "command": "aidex.recommendations", "title": "aidev: Recommendations" },
+      { "command": "aidex.logs", "title": "aidev: Logs" },
+      { "command": "aidex.repos", "title": "aidev: Repos" },
+      { "command": "aidex.report", "title": "aidev: Report" },
+      { "command": "aidex.openPortfolio", "title": "aidev: Open Portfolio Dashboard" }
+    ],
+    "keybindings": [
+      { "command": "aidex.brief", "key": "ctrl+alt+b", "mac": "cmd+alt+b" },
+      { "command": "aidex.status", "key": "ctrl+alt+s", "mac": "cmd+alt+s" }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "tsc -p ./tsconfig.json",
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

@@ -1,0 +1,2 @@
+[console_scripts]
+aidev = aidev.cli:main

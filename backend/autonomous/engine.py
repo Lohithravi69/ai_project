@@ -14,6 +14,33 @@ class AutonomousTaskEngine:
         self._failure_analyzer = FailureAnalyzer()
         self._tasks: dict[str, dict[str, Any]] = {}
 
+    def _record_experience(self, task: dict[str, Any]) -> None:
+        from backend.learning.experience_store import ExperienceStore
+        try:
+            store = ExperienceStore()
+            failures = []
+            fixes = []
+            for p in task.get("progress", []):
+                if p.get("status") == "failed" and p.get("message"):
+                    failures.append(p["message"])
+            for a in task.get("analyses", []):
+                rec = a.get("recovery_strategies", [{}])[0].get("description", "") if a.get("recovery_strategies") else ""
+                if rec:
+                    fixes.append(rec)
+            tools = []
+            store.auto_record(
+                objective=task.get("objective", ""),
+                outcome=task.get("status", "completed"),
+                tools_used=tools,
+                failures=failures,
+                fixes=fixes,
+                duration_ms=task.get("metrics", {}).get("total_duration_ms", 0),
+                execution_id=task.get("id", ""),
+                repository_id=task.get("repository_id", ""),
+            )
+        except Exception:
+            pass
+
     def create_task(
         self,
         objective: str,
@@ -128,6 +155,8 @@ class AutonomousTaskEngine:
             task["metrics"]["total_duration_ms"] = int(
                 (task["metrics"]["completed_at"] - task["metrics"]["started_at"]) * 1000
             )
+        if status == "completed":
+            self._record_experience(task)
 
     def start_task(self, task_id: str) -> bool:
         task = self._tasks.get(task_id)

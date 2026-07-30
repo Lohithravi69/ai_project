@@ -384,6 +384,17 @@ async def search_patterns(q: str = Query(min_length=1)):
     return [p.to_dict() for p in patterns]
 
 
+@router.get("/experiences", response_model=list[dict[str, Any]])
+async def list_experiences(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    from backend.learning.experience_store import ExperienceStore
+
+    store = ExperienceStore()
+    return [e.to_dict() for e in store.list_all(limit=limit, offset=offset)]
+
+
 @router.get("/experiences/search", response_model=list[dict[str, Any]])
 async def search_experiences(q: str = Query(min_length=1)):
     from backend.learning.experience_store import ExperienceStore

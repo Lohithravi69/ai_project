@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aidev"
+version = "1.0.0"
+description = "Personal AI Development Operating System CLI"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+    "httpx>=0.24",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+aidev = "aidev.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["aidev*"]

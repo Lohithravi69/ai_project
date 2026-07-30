@@ -384,3 +384,11 @@ export async function v7RecommendationAction(recId: string, action: 'approve' | 
     method: 'POST', body: JSON.stringify({ action }),
   });
 }
+
+export async function v7GetBrief() {
+  return request<Record<string, any>>('/api/v7/brief');
+}
+
+export async function v6ListExperiences(limit = 50, offset = 0) {
+  return request<Array<Record<string, any>>>(`/api/v6/experiences?limit=${limit}&offset=${offset}`);
+}
