@@ -556,3 +556,74 @@ class ArchitectureRecommendationRecord(Base, TimestampMixin):
     confidence: Mapped[float] = mapped_column(Integer, default=0.0, nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="proposed", nullable=False)
     execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+# ── Phase 6 Evolution Engine models ────────────────────────────────────────
+
+
+class RecommendationRecord(Base, TimestampMixin):
+    __tablename__ = "recommendations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    priority: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="open", nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    effort_estimate: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    affected_files_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    repository_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class DebtItemRecord(Base, TimestampMixin):
+    __tablename__ = "debt_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    line_start: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    line_end: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    metric_name: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    metric_value: Mapped[float] = mapped_column(Integer, default=0.0, nullable=False)
+    suggestion: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="open", nullable=False)
+    repository_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class VersionPlanRecord(Base, TimestampMixin):
+    __tablename__ = "version_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    current_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    suggested_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    reasons_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    changes_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    risks_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    estimated_effort: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="proposed", nullable=False)
+    repository_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class AnalyticsTrendRecord(Base, TimestampMixin):
+    __tablename__ = "analytics_trends"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    metric_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    metric_value: Mapped[float] = mapped_column(Integer, default=0.0, nullable=False)
+    metric_unit: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    direction: Mapped[str] = mapped_column(String(16), default="stable", nullable=False)
+    change_percent: Mapped[float] = mapped_column(Integer, default=0.0, nullable=False)
+    repository_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    execution_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

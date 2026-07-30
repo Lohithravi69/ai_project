@@ -508,5 +508,52 @@ class AgentScoringRequest(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+# ── v7 Evolution Engine schemas ────────────────────────────────────────────
+
+
+class AnalyzeFilesRequest(BaseModel):
+    files: dict[str, str] = Field(default_factory=dict)
+
+
+class RequirementsRequest(BaseModel):
+    content: str = ""
+
+
+class ImportsRequest(BaseModel):
+    imports: list[str] = Field(default_factory=list)
+
+
+class FullAnalysisRequest(BaseModel):
+    files: dict[str, str] = Field(default_factory=dict)
+    requirements_content: str = ""
+    imports: list[str] = Field(default_factory=list)
+    repository_id: str = ""
+    current_version: str = "v1.0.0"
+
+
+class FullAnalysisResponse(BaseModel):
+    debt_summary: dict[str, Any] = Field(default_factory=dict)
+    arch_report: dict[str, Any] = Field(default_factory=dict)
+    dep_plan: dict[str, Any] = Field(default_factory=dict)
+    perf_summary: dict[str, Any] = Field(default_factory=dict)
+    sec_summary: dict[str, Any] = Field(default_factory=dict)
+    version_plan: dict[str, Any] = Field(default_factory=dict)
+    recommendations: dict[str, Any] = Field(default_factory=dict)
+
+
+class VersionPlanRequest(BaseModel):
+    current_version: str = "v1.0.0"
+    repository_id: str = ""
+    debt_summary: dict[str, Any] = Field(default_factory=dict)
+    arch_changes: list[dict[str, Any]] = Field(default_factory=list)
+    dep_recs: list[dict[str, Any]] = Field(default_factory=list)
+    perf_findings: list[dict[str, Any]] = Field(default_factory=list)
+    sec_findings: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class RecommendationAction(BaseModel):
+    action: str = Field(pattern="^(approve|dismiss)$")
+
+
 GitHubSyncResponse.model_rebuild()
 RepositoryFilesResponse.model_rebuild()

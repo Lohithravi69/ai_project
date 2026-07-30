@@ -18,6 +18,7 @@ from backend.api.v3.phase3 import router as phase3_router
 from backend.api.v4.router import router as phase4_router
 from backend.api.v5.router import router as phase5_router
 from backend.api.v6.router import router as phase6_router
+from backend.api.v7.router import router as phase7_router
 from backend.config import get_settings
 from backend.database.base import Base
 from backend.database.session import engine
@@ -60,3 +61,4 @@ app.include_router(phase3_router)
 app.include_router(phase4_router)
 app.include_router(phase5_router)
 app.include_router(phase6_router)
+app.include_router(phase7_router)

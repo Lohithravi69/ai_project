@@ -299,3 +299,88 @@ export async function v6SearchPatterns(q: string) {
 export async function v6SearchExperiences(q: string) {
   return request<Array<Record<string, any>>>(`/api/v6/experiences/search?q=${encodeURIComponent(q)}`);
 }
+
+// ── Phase 6 (v7) Evolution Engine API ──────────────────────────────────────
+
+export async function v7FullAnalysis(payload: {
+  files: Record<string, string>;
+  requirements_content?: string;
+  imports?: string[];
+  repository_id?: string;
+  current_version?: string;
+}) {
+  return request<Record<string, any>>('/api/v7/analyze/full', {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export async function v7AnalyzeDebt(files: Record<string, string>) {
+  return request<Record<string, any>>('/api/v7/analyze/debt', {
+    method: 'POST', body: JSON.stringify({ files }),
+  });
+}
+
+export async function v7AnalyzeArchitecture(files: Record<string, string>) {
+  return request<Record<string, any>>('/api/v7/analyze/architecture', {
+    method: 'POST', body: JSON.stringify({ files }),
+  });
+}
+
+export async function v7AnalyzeDependencies(content: string) {
+  return request<Record<string, any>>('/api/v7/analyze/dependencies/requirements', {
+    method: 'POST', body: JSON.stringify({ content }),
+  });
+}
+
+export async function v7AnalyzePerformance(files: Record<string, string>) {
+  return request<Record<string, any>>('/api/v7/analyze/performance', {
+    method: 'POST', body: JSON.stringify({ files }),
+  });
+}
+
+export async function v7AnalyzeSecurity(files: Record<string, string>) {
+  return request<Record<string, any>>('/api/v7/analyze/security', {
+    method: 'POST', body: JSON.stringify({ files }),
+  });
+}
+
+export async function v7PlanVersion(payload: {
+  current_version: string;
+  debt_summary?: Record<string, any>;
+  arch_changes?: Record<string, any>[];
+  dep_recs?: Record<string, any>[];
+  perf_findings?: Record<string, any>[];
+  sec_findings?: Record<string, any>[];
+}) {
+  return request<Record<string, any>>('/api/v7/plan/version', {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export async function v7GetTrends(metric?: string) {
+  const params = metric ? `?metric=${metric}` : '';
+  return request<Record<string, any>>(`/api/v7/analytics/trends${params}`);
+}
+
+export async function v7RecordMetric(metricName: string, value: number, unit = '') {
+  return request<Record<string, any>>(`/api/v7/analytics/record?metric_name=${encodeURIComponent(metricName)}&value=${value}&unit=${encodeURIComponent(unit)}`, {
+    method: 'POST',
+  });
+}
+
+export async function v7ListRecommendations(status?: string, grouped = false) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (grouped) params.set('grouped', 'true');
+  return request<Record<string, any>>(`/api/v7/recommendations${params.toString() ? `?${params}` : ''}`);
+}
+
+export async function v7GetRecommendationStats() {
+  return request<Record<string, any>>('/api/v7/recommendations/stats');
+}
+
+export async function v7RecommendationAction(recId: string, action: 'approve' | 'dismiss') {
+  return request<Record<string, any>>(`/api/v7/recommendations/${recId}/action`, {
+    method: 'POST', body: JSON.stringify({ action }),
+  });
+}

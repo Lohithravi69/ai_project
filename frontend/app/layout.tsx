@@ -36,6 +36,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/architecture-advisor">Architecture Advisor</Link>
               <Link href="/pattern-library">Pattern Library</Link>
               <Link href="/engineering-reports">Reports</Link>
+              <Link href="/evolution-dashboard">Evolution</Link>
+              <Link href="/technical-debt">Debt</Link>
+              <Link href="/architecture-evolution">Architecture</Link>
+              <Link href="/dependency-intelligence">Deps</Link>
+              <Link href="/performance-advisor">Perf</Link>
+              <Link href="/security-advisor">Security</Link>
+              <Link href="/version-planner">Versions</Link>
+              <Link href="/recommendation-center">Recs</Link>
             </nav>
           </header>
           <main className="container mx-auto p-6">{children}</main>
