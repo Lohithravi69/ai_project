@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,14 +42,120 @@ _at = AnalyticsTracker()
 _rc = RecommendationCenter()
 
 
+# ── DB helpers ────────────────────────────────────────────────────────────────
+
+
+async def _persist_debt_items(session: AsyncSession, items: list[dict[str, Any]], execution_id: str = "") -> None:
+    for item in items:
+        record = DebtItemRecord(
+            category=item.get("category", "unknown")[:64],
+            file_path=item.get("file_path", ""),
+            line_start=item.get("line_start", 0),
+            line_end=item.get("line_end", 0),
+            description=item.get("description", ""),
+            severity=item.get("severity", "medium"),
+            metric_name=item.get("metric_name", ""),
+            metric_value=float(item.get("metric_value", 0)),
+            suggestion=item.get("suggestion", ""),
+            status="open",
+            execution_id=execution_id or None,
+        )
+        session.add(record)
+    await session.commit()
+
+
+async def _persist_recommendation(session: AsyncSession, rec: Any) -> None:
+    record = RecommendationRecord(
+        id=rec.id,
+        category=rec.category[:64],
+        title=rec.title[:255],
+        description=rec.description,
+        severity=rec.severity,
+        priority=rec.priority,
+        status=rec.status,
+        rationale=rec.rationale,
+        effort_estimate=rec.effort_estimate,
+        affected_files_json=rec.affected_files,
+        metadata_json=rec.metadata,
+    )
+    session.add(record)
+    await session.commit()
+
+
+async def _persist_recommendations(session: AsyncSession, recs: list[Any]) -> None:
+    for rec in recs:
+        record = RecommendationRecord(
+            id=rec.id,
+            category=rec.category[:64],
+            title=rec.title[:255],
+            description=rec.description,
+            severity=rec.severity,
+            priority=rec.priority,
+            status=rec.status,
+            rationale=rec.rationale,
+            effort_estimate=rec.effort_estimate,
+            affected_files_json=rec.affected_files,
+            metadata_json=rec.metadata,
+        )
+        session.add(record)
+    await session.commit()
+
+
+async def _persist_version_plan(session: AsyncSession, plan: Any, execution_id: str = "") -> None:
+    record = VersionPlanRecord(
+        current_version=plan.current_version,
+        suggested_version=plan.suggested_version,
+        title=plan.title,
+        summary=plan.summary,
+        reasons_json=plan.reasons,
+        changes_json=plan.changes,
+        risks_json=plan.risks,
+        estimated_effort=plan.estimated_effort,
+        status="proposed",
+        execution_id=execution_id or None,
+    )
+    session.add(record)
+    await session.commit()
+
+
+async def _persist_trend(session: AsyncSession, snapshot: Any, repository_id: str = "") -> None:
+    record = AnalyticsTrendRecord(
+        metric_name=snapshot.metric_name,
+        metric_value=snapshot.metric_value,
+        metric_unit=snapshot.metric_unit,
+        direction=snapshot.direction,
+        change_percent=snapshot.change_percent,
+        repository_id=repository_id or None,
+        snapshot_json=snapshot.metadata or {},
+    )
+    session.add(record)
+    await session.commit()
+
+
+async def _update_rec_status(session: AsyncSession, rec_id: str, status: str) -> bool:
+    result = await session.execute(
+        select(RecommendationRecord).where(RecommendationRecord.id == rec_id)
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        return False
+    record.status = status
+    if status == "approved":
+        record.approved_at = datetime.now(timezone.utc)
+    await session.commit()
+    return True
+
+
 # ── Technical Debt Analyzer ─────────────────────────────────────────────────
 
 
 @router.post("/analyze/debt")
-async def analyze_debt(payload: AnalyzeFilesRequest):
+async def analyze_debt(payload: AnalyzeFilesRequest, session: AsyncSession = Depends(get_session)):
     items = _debt.analyze_files(payload.files)
     summary = _debt.generate_summary(items)
-    return {"items": [i.to_dict() for i in items], "summary": summary}
+    item_dicts = [i.to_dict() for i in items]
+    await _persist_debt_items(session, item_dicts)
+    return {"items": item_dicts, "summary": summary}
 
 
 @router.post("/analyze/debt/file")
@@ -105,7 +215,7 @@ async def analyze_security(payload: AnalyzeFilesRequest):
 
 
 @router.post("/analyze/full", response_model=FullAnalysisResponse)
-async def analyze_full(payload: FullAnalysisRequest):
+async def analyze_full(payload: FullAnalysisRequest, session: AsyncSession = Depends(get_session)):
     debt_items = _debt.analyze_files(payload.files)
     debt_summary = _debt.generate_summary(debt_items)
 
@@ -132,16 +242,28 @@ async def analyze_full(payload: FullAnalysisRequest):
         sec_findings=[f.to_dict() for f in sec_findings],
     )
 
-    _rc.add_from_debt([i.to_dict() for i in debt_items])
-    _rc.add_from_arch([c.to_dict() for c in arch_changes])
-    _rc.add_from_deps(all_dep_recs)
-    _rc.add_from_perf([f.to_dict() for f in perf_findings])
-    _rc.add_from_security([f.to_dict() for f in sec_findings])
+    recs = []
+    recs.extend(_rc.add_from_debt([i.to_dict() for i in debt_items]))
+    recs.extend(_rc.add_from_arch([c.to_dict() for c in arch_changes]))
+    recs.extend(_rc.add_from_deps(all_dep_recs))
+    recs.extend(_rc.add_from_perf([f.to_dict() for f in perf_findings]))
+    recs.extend(_rc.add_from_security([f.to_dict() for f in sec_findings]))
     recommendations = _rc.get_by_priority()
 
-    at.record("debt_score", debt_summary.get("total_score", 0), "points")
-    at.record("perf_score", perf_summary.get("score", 10), "points")
-    at.record("sec_risk", sec_summary.get("risk_score", 0), "points")
+    debt_snap = _at.record("debt_score", debt_summary.get("total_score", 0), "points")
+    perf_snap = _at.record("perf_score", perf_summary.get("score", 10), "points")
+    sec_snap = _at.record("sec_risk", sec_summary.get("risk_score", 0), "points")
+
+    debt_item_dicts = [i.to_dict() for i in debt_items]
+    await _persist_debt_items(session, debt_item_dicts)
+
+    all_center_recs = _rc._recommendations
+    await _persist_recommendations(session, all_center_recs[-len(recs):] if recs else [])
+
+    await _persist_version_plan(session, version_plan)
+    await _persist_trend(session, debt_snap)
+    await _persist_trend(session, perf_snap)
+    await _persist_trend(session, sec_snap)
 
     return FullAnalysisResponse(
         debt_summary=debt_summary,
@@ -158,7 +280,7 @@ async def analyze_full(payload: FullAnalysisRequest):
 
 
 @router.post("/plan/version")
-async def plan_version(payload: VersionPlanRequest):
+async def plan_version(payload: VersionPlanRequest, session: AsyncSession = Depends(get_session)):
     plan = _vp.generate_plan(
         current_version=payload.current_version,
         debt_summary=payload.debt_summary or None,
@@ -167,6 +289,7 @@ async def plan_version(payload: VersionPlanRequest):
         perf_findings=payload.perf_findings or None,
         sec_findings=payload.sec_findings or None,
     )
+    await _persist_version_plan(session, plan)
     return plan.to_dict()
 
 
@@ -174,15 +297,28 @@ async def plan_version(payload: VersionPlanRequest):
 
 
 @router.get("/analytics/trends")
-async def get_trends(metric: str | None = Query(None)):
+async def get_trends(metric: str | None = Query(None), session: AsyncSession = Depends(get_session)):
     if metric:
-        return {"metric": metric, "data": _at.get_trend(metric)}
+        rows = await session.execute(
+            select(AnalyticsTrendRecord)
+            .where(AnalyticsTrendRecord.metric_name == metric)
+            .order_by(AnalyticsTrendRecord.created_at.desc())
+            .limit(10)
+        )
+        return {"metric": metric, "data": [{"value": r.metric_value, "unit": r.metric_unit, "direction": r.direction, "change_percent": r.change_percent} for r in rows.scalars().all()]}
     return _at.get_summary()
 
 
 @router.post("/analytics/record")
-async def record_metric(metric_name: str = Query(...), value: float = Query(...), unit: str = Query(default=""), repository_id: str = Query(default="")):
+async def record_metric(
+    metric_name: str = Query(...),
+    value: float = Query(...),
+    unit: str = Query(default=""),
+    repository_id: str = Query(default=""),
+    session: AsyncSession = Depends(get_session),
+):
     snapshot = _at.record(metric_name, value, unit)
+    await _persist_trend(session, snapshot, repository_id)
     return snapshot.to_dict()
 
 
@@ -190,7 +326,11 @@ async def record_metric(metric_name: str = Query(...), value: float = Query(...)
 
 
 @router.get("/recommendations")
-async def list_recommendations(status: str | None = Query(None), grouped: bool = Query(False)):
+async def list_recommendations(
+    status: str | None = Query(None),
+    grouped: bool = Query(False),
+    session: AsyncSession = Depends(get_session),
+):
     if grouped:
         return _rc.get_grouped()
     return [r.to_dict() for r in _rc.get_all(status=status)]
@@ -207,7 +347,7 @@ async def recommendation_stats():
 
 
 @router.post("/recommendations/{rec_id}/action")
-async def recommendation_action(rec_id: str, payload: RecommendationAction):
+async def recommendation_action(rec_id: str, payload: RecommendationAction, session: AsyncSession = Depends(get_session)):
     if payload.action == "approve":
         ok = _rc.approve(rec_id)
     elif payload.action == "dismiss":
@@ -216,7 +356,8 @@ async def recommendation_action(rec_id: str, payload: RecommendationAction):
         raise HTTPException(status_code=400, detail=f"Unknown action: {payload.action}")
     if not ok:
         raise HTTPException(status_code=404, detail="Recommendation not found")
-    return {"status": "ok", "rec_id": rec_id, "action": payload.action}
+    db_ok = await _update_rec_status(session, rec_id, payload.action + "d" if payload.action == "approve" else payload.action)
+    return {"status": "ok", "rec_id": rec_id, "action": payload.action, "db_updated": db_ok}
 
 
 # ── Daily Engineering Brief ──────────────────────────────────────────────────
